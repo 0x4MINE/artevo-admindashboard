@@ -6,6 +6,9 @@ import { Column } from "@/types/Column";
 import { getLotsByProductId } from "@/lib/actions/lotActions";
 import { useFilterStore } from "@/lib/store/useFilter";
 import { toast } from "sonner";
+import { X } from "lucide-react";
+import LotPopup from "../popups/LotsPopup";
+import NewBtn from "../forms/NewBtn";
 
 type SelectLotProps = {
   isOpen: boolean;
@@ -22,6 +25,7 @@ export default function SelectLot({
 }: SelectLotProps) {
   const [search, setSearch] = useState("");
   const [data, setData] = useState<any[]>([]);
+  const [lotPopup, setLotPopup] = useState(false);
   const { filters } = useFilterStore();
 
   const columns: Column[] = [
@@ -51,40 +55,60 @@ export default function SelectLot({
   }, [isOpen, filters, productId]);
 
   return (
-    <Popup isOpen={isOpen} onClose={onClose}>
-      <div className="h-[60vh] w-full">
-        {/* Header */}
-        <div className="header flex justify-between items-center">
-          <div className="w-10" />
-          <h1 className="text-2xl text-center font-bold text-title">
-            SELECT A LOT
-          </h1>
-          <div className="w-10" />
-        </div>
+    <div>
+      {" "}
+      <Popup isOpen={isOpen} onClose={onClose}>
+        <div className="h-[60vh] w-full">
+          {/* Header */}
+          <div className="header relative flex justify-between items-center">
+            <div />
 
-        {/* Search */}
-        <div className="flex justify-center items-center">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="bg-secondary my-6 py-2 px-4 rounded-2xl focus:outline-none"
-            placeholder="Search..."
+            {/* Center Title */}
+            <h1 className="absolute left-1/2 -translate-x-1/2 text-2xl font-bold text-title">
+              SELECT A LOT
+            </h1>
+
+            <NewBtn text="New Lot" onClick={() => setLotPopup(true)} />
+          </div>
+
+          {/* Search */}
+          <div className="flex justify-center items-center">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="bg-secondary my-6 py-2 px-4 rounded-2xl focus:outline-none"
+              placeholder="Search..."
+            />
+          </div>
+
+          {/* Table */}
+          <CustomTable
+            data={data}
+            columns={columns}
+            showActions={false}
+            searchTerm={search}
+            onDoubleClick={(row) => {
+              onSelect(row);
+              onClose();
+            }}
           />
         </div>
-
-        {/* Table */}
-        <CustomTable
-          data={data}
-          columns={columns}
-          showActions={false}
-          searchTerm={search}
-          onDoubleClick={(row) => {
-            onSelect(row);
-            onClose();
+        <Popup
+          isOpen={lotPopup}
+          onClose={() => {
+            setLotPopup(false);
           }}
-        />
-      </div>
-    </Popup>
+        >
+          <LotPopup
+            showQuantity={false}
+            setData={setData}
+            setPopUp={setLotPopup}
+            productId={productId}
+            setEditLot={() => {}}
+          />
+        </Popup>
+      </Popup>{" "}
+    </div>
   );
 }

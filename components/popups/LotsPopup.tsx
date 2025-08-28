@@ -6,7 +6,7 @@ import { getSuppliers } from "@/lib/actions/supplierActions";
 import AddTextInput from "@/components/forms/AddTextInput";
 import SelectInput from "@/components/forms/SelectInput";
 import AddButton from "@/components/AddButton";
-import { generate3DigitId, generateCustomId } from "@/lib/utils";
+import { generateCustomId } from "@/lib/utils";
 import { Switch } from "../ui/switch";
 
 type LotForm = {
@@ -27,40 +27,16 @@ type LotPopupProps = {
   editLot?: any;
   setEditLot: React.Dispatch<React.SetStateAction<any>>;
   productId: string;
+  showQuantity?: boolean; // 👈 NEW
 };
 
 // Helper function to format date for input field
 const formatDateForInput = (dateValue: any): string => {
-  console.log(
-    "formatDateForInput called with:",
-    dateValue,
-    "type:",
-    typeof dateValue
-  );
-
-  if (!dateValue) {
-    console.log("No date value provided, using today");
-    return new Date().toISOString().split("T")[0];
-  }
-
-  try {
-    const date = new Date(dateValue);
-    console.log("Created Date object:", date);
-
-    // Check if date is valid
-    if (isNaN(date.getTime())) {
-      console.warn("Invalid date provided:", dateValue);
-      return new Date().toISOString().split("T")[0];
-    }
-
-    // Format as YYYY-MM-DD for input field
-    const formatted = date.toISOString().split("T")[0];
-    console.log("Final formatted date:", formatted);
-    return formatted;
-  } catch (error) {
-    console.error("Error formatting date:", error);
-    return new Date().toISOString().split("T")[0];
-  }
+  if (!dateValue) return new Date().toISOString().split("T")[0];
+  const date = new Date(dateValue);
+  return isNaN(date.getTime())
+    ? new Date().toISOString().split("T")[0]
+    : date.toISOString().split("T")[0];
 };
 
 export default function LotPopup({
@@ -69,6 +45,7 @@ export default function LotPopup({
   editLot,
   setEditLot,
   productId,
+  showQuantity = true, // 👈 default true
 }: LotPopupProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [suppliers, setSuppliers] = useState<{ _id: string; name: string }[]>(
@@ -93,43 +70,27 @@ export default function LotPopup({
         setSuppliers(res || []);
       } catch (error) {
         toast.error("Failed to fetch suppliers");
-        console.error(error);
       }
     }
     fetchSuppliers();
   }, []);
 
   useEffect(() => {
-    console.log("useEffect triggered - editLot:", editLot);
-    console.log("editLot exists:", !!editLot);
-
     if (editLot && editLot._id) {
-      // More specific check
-      console.log("Processing editLot...");
-      console.log("editLot full object:", JSON.stringify(editLot, null, 2));
-      console.log("editLot.date raw value:", editLot.date);
-      console.log("editLot.date type:", typeof editLot.date);
-
       const formattedDate = formatDateForInput(editLot.date);
-      console.log("formatted date result:", formattedDate);
-
-      const newForm = {
-        lot_id: editLot.lot_id ,
+      setForm({
+        lot_id: editLot.lot_id,
         buyPrice: editLot.buyPrice || 0,
-        quantity: editLot.quantity || 0,
         sellPrice: editLot.sellPrice || 0,
+        quantity: editLot.quantity || 0,
         supp_id: editLot.supp_id?._id || editLot.supp_id || "",
         prod_id: editLot.prod_id || "",
         date: formattedDate,
         isActive: editLot.isActive ?? true,
         _id: editLot._id,
-      };
-
-      console.log("Setting form with:", newForm);
-      setForm(newForm);
+      });
     } else {
-      console.log("Creating new lot form");
-      const newForm = {
+      setForm({
         lot_id: generateCustomId("L"),
         buyPrice: 0,
         sellPrice: 0,
@@ -138,9 +99,7 @@ export default function LotPopup({
         prod_id: productId,
         date: new Date().toISOString().split("T")[0],
         isActive: true,
-      };
-      console.log("New lot form:", newForm);
-      setForm(newForm);
+      });
     }
   }, [editLot, productId]);
 
@@ -164,24 +123,19 @@ export default function LotPopup({
 
     requiredFields.forEach((field) => {
       if (!form[field]) {
-        newErrors[field] = `${
-          field.charAt(0).toUpperCase() + field.slice(1)
-        } is required`;
+        newErrors[field] = `${field} is required`;
         isValid = false;
       }
     });
 
-    // Additional validation for numeric fields
     if (form.buyPrice < 0) {
       newErrors.buyPrice = "Buy price cannot be negative";
       isValid = false;
     }
-
     if (form.sellPrice < 0) {
       newErrors.sellPrice = "Sell price cannot be negative";
       isValid = false;
     }
-
     if (form.quantity < 0) {
       newErrors.quantity = "Quantity cannot be negative";
       isValid = false;
@@ -219,7 +173,6 @@ export default function LotPopup({
       setPopUp(false);
       setEditLot(null);
     } catch (error) {
-      console.error("Error saving lot:", error);
       toast.error(
         error instanceof Error ? error.message : "An unexpected error occurred"
       );
@@ -241,15 +194,6 @@ export default function LotPopup({
       <h1 className="text-2xl font-bold text-title">
         {editLot ? "EDIT LOT" : "ADD LOT"}
       </h1>
-
-      {/* Debug info - remove this in production */}
-      <div className="text-xs text-gray-500 bg-gray-100 p-2 rounded">
-        <h1>DEBUGGING TAB</h1>
-        <div>Edit Mode: {editLot ? "Yes" : "No"}</div>
-        <div>Form Date: {form.date}</div>
-        <div>EditLot Date: {editLot?.date || "N/A"}</div>
-        <div>EditLot ID: {editLot?._id || "N/A"}</div>
-      </div>
 
       <AddTextInput isDisabled placeholder={form.lot_id} />
 
@@ -273,16 +217,17 @@ export default function LotPopup({
         required
       />
 
-      <AddTextInput
-        name="quantity"
-        type="number"
-        value={form.quantity || 0}
-        onChange={(e) => handleChange("quantity", Number(e.target.value))}
-        placeholder="Quantity"
-        error={errors.quantity}
-      />
+      {showQuantity && ( // 👈 only show if true
+        <AddTextInput
+          name="quantity"
+          type="number"
+          value={form.quantity || 0}
+          onChange={(e) => handleChange("quantity", Number(e.target.value))}
+          placeholder="Quantity"
+          error={errors.quantity}
+        />
+      )}
 
-      {/* Supplier Select */}
       <SelectInput
         placeholder="Supplier"
         options={suppliers.map((s) => s.name)}

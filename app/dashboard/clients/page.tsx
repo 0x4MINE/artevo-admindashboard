@@ -44,7 +44,7 @@ function Clients() {
     { key: "phone", label: "Phone", type: "text" },
     { key: "isActive", label: "Status", type: "status" },
     { key: "spentThisMonth", label: "Spent This Month", type: "currency" },
-    { key: "credit", label: "Credit", type: "currency" },
+    { key: "debt", label: "Debt", type: "currency" },
   ];
 
   const handleDelete = (itemToDelete: any) => {

@@ -273,7 +273,9 @@ export default function CustomTable({
     [onDoubleClick]
   );
 
-  {loading && <Loader/>}
+  {
+    loading && <Loader />;
+  }
 
   return (
     <div
@@ -294,7 +296,7 @@ export default function CustomTable({
                   key={column.key}
                   className={clsx(
                     "px-6 py-3 text-left text-xs font-medium uppercase tracking-wider",
-                    column.key === "credit" ? "text-inactive" : "text-subtitle"
+                    column.key === "debt" ? "text-inactive" : "text-subtitle"
                   )}
                 >
                   {column.label}

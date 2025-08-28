@@ -117,7 +117,7 @@ export default function Sidebar({ currentUser }: { currentUser: any }) {
                   <Link href={item.href}>
                     <div
                       className={clsx(
-                        "flex items-center justify-between p-3 rounded cursor-pointer transition-all duration-200",
+                        "flex items-center justify-between p-3 rounded cursor-pointer ",
                         isParentActive(item)
                           ? "bg-primary text-title"
                           : "hover:bg-primary hover:text-title hover:scale-105"
@@ -133,7 +133,7 @@ export default function Sidebar({ currentUser }: { currentUser: any }) {
                 ) : (
                   <div
                     className={clsx(
-                      "flex items-center justify-between hover:scale-105 gap-2 p-3 rounded cursor-pointer transition-all duration-200",
+                      "flex items-center justify-between hover:scale-105 gap-2 p-3 rounded cursor-pointer ",
                       isParentActive(item)
                         ? "bg-primary text-title"
                         : "hover:bg-primary hover:text-title "
@@ -223,7 +223,7 @@ export default function Sidebar({ currentUser }: { currentUser: any }) {
                   <button
                     type="submit"
                     className={clsx(
-                      "flex items-center justify-between w-full p-3 rounded cursor-pointer transition-all duration-200",
+                      "flex items-center justify-between w-full p-3 rounded cursor-pointer ",
                       isParentActive(item)
                         ? "bg-primary text-title"
                         : "hover:bg-primary hover:text-title hover:scale-105"
@@ -238,7 +238,7 @@ export default function Sidebar({ currentUser }: { currentUser: any }) {
               ) : (
                 <div
                   className={clsx(
-                    "flex items-center justify-between hover:scale-105 gap-2 p-3 rounded cursor-pointer transition-all duration-200",
+                    "flex items-center justify-between hover:scale-105 gap-2 p-3 rounded cursor-pointer ",
                     isParentActive(item)
                       ? "bg-primary text-title"
                       : "hover:bg-primary hover:text-title"
@@ -281,7 +281,7 @@ export default function Sidebar({ currentUser }: { currentUser: any }) {
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: 0.05 }}
                             className={clsx(
-                              "p-2 rounded cursor-pointer font-medium transition-all duration-200",
+                              "p-2 rounded cursor-pointer font-medium ",
                               isActiveRoute(sub.href)
                                 ? "bg-primary text-title font-bold"
                                 : "hover:bg-primary"

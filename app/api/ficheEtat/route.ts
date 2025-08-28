@@ -262,7 +262,7 @@ export async function GET() {
   return new NextResponse(Buffer.from(buffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": "inline; filename=facture.pdf",
+      "Content-Disposition": "inline; filename=bon.pdf",
     },
   });
 }

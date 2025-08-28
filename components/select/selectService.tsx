@@ -6,6 +6,7 @@ import { Column } from "@/types/Column";
 import { getService } from "@/lib/actions/serviceActions";
 import { useFilterStore } from "@/lib/store/useFilter";
 import { toast } from "sonner";
+import ServicesPopup from "../popups/ServicesPopup";
 
 type SelectServiceProps = {
   isOpen: boolean;
@@ -20,6 +21,8 @@ export default function SelectService({
 }: SelectServiceProps) {
   const [search, setSearch] = useState("");
   const [data, setData] = useState<any[]>([]);
+  const [popUp, setPopUp] = useState(false);
+
   const { filters } = useFilterStore();
 
   const columns: Column[] = [
@@ -30,7 +33,6 @@ export default function SelectService({
     { key: "isActive", label: "Status", type: "status" },
     { key: "tva", label: "TVA", type: "text" },
   ];
-
 
   useEffect(() => {
     if (!isOpen) return;
@@ -53,13 +55,18 @@ export default function SelectService({
     <Popup isOpen={isOpen} onClose={onClose}>
       <div className="h-[60vh] w-full">
         {/* Header */}
-        <div className="header flex justify-between items-center">
-          <div className="w-10" />
-          <h1 className="text-2xl text-center font-bold text-title">
+        <div className="header relative flex justify-between items-center">
+          <div />
+
+          <h1 className="absolute left-1/2 -translate-x-1/2 text-2xl font-bold text-title">
             SELECT A SERVICE
           </h1>
-          <button className="py-2 px-4 bg-btn-primary text-white rounded-[10px] font-bold">
-            +
+
+          <button
+            onClick={() => setPopUp(true)}
+            className="py-2 px-4 bg-btn-primary text-white rounded-[10px] font-bold flex items-center justify-center gap-3"
+          >
+            <span className="font-bold text-2xl">+</span> New Service
           </button>
         </div>
 
@@ -86,6 +93,14 @@ export default function SelectService({
           }}
         />
       </div>
+      <Popup isOpen={popUp} onClose={() => setPopUp(false)}>
+        <ServicesPopup
+          setData={setData}
+          setPopUp={setPopUp}
+          editService={null}
+          setEditService={() => {}}
+        />{" "}
+      </Popup>
     </Popup>
   );
 }

@@ -28,11 +28,11 @@ export const createLot = async (data: Partial<ILot>) => {
 
   await lot.populate([
     { path: "supp_id", select: "name" },
-    { path: "prod_id", select: "name" },
+    { path: "prod_id", select: "name prod_id" },
   ]);
 
   const obj = lot.toObject();
-
+  console.log(obj);
   return {
     success: true,
     data: {
@@ -40,11 +40,12 @@ export const createLot = async (data: Partial<ILot>) => {
       _id: obj._id.toString(),
       supp_id: obj.supp_id?._id?.toString() || null,
       supp_name: obj.supp_id?.name || "",
-      prod_id: obj.prod_id?._id?.toString() || null,
-      prod_name: obj.prod_id?.name || "",
-      date: obj.date ? new Date(obj.date).toISOString() : null,
-      createdAt: obj.createdAt ? new Date(obj.createdAt).toISOString() : null,
-      updatedAt: obj.updatedAt ? new Date(obj.updatedAt).toISOString() : null,
+      prod_id: obj.prod_id
+        ? { ...obj.prod_id, _id: obj.prod_id._id.toString() }
+        : null,
+      date: obj.date ? obj.date.toISOString() : null,
+      createdAt: obj.createdAt?.toISOString() || null,
+      updatedAt: obj.updatedAt?.toISOString() || null,
     },
   };
 };
@@ -192,7 +193,7 @@ export const getLotsByProductId = async (productId: string) => {
 
   const lots = await Lot.find({ prod_id: productId })
     .populate("supp_id", "name")
-    .populate("prod_id", "name prod_id")
+    .populate("prod_id", "name prod_id tva")
     .lean()
     .exec();
 

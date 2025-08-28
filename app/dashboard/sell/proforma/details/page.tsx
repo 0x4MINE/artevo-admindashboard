@@ -16,7 +16,7 @@ import { getClientById } from "@/lib/actions/clientActions";
 import { toast, Toaster } from "sonner";
 import {
   createProforma,
-  getNextProformaNumber,
+  getNextNumber,
 } from "@/lib/actions/transactionActions";
 import { useUserStore } from "@/lib/store/useUser";
 
@@ -89,7 +89,7 @@ function Details() {
   useEffect(() => {
     async function fetchBillNo() {
       try {
-        const next = await getNextProformaNumber();
+        const next = await getNextNumber("proformaId");
         setBillNo(next);
       } catch (err) {
         console.error("Failed to fetch bill number", err);

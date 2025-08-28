@@ -11,7 +11,7 @@ export default async function Layout({
 }) {
   const currentUser = await getCurrentUser();
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden ">
       <Sidebar currentUser={currentUser} />
       <div className="flex flex-col flex-1 overflow-auto">
         <Navbar />

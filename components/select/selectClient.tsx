@@ -29,7 +29,7 @@ export default function SelectClient({
     { key: "phone", label: "Phone", type: "text" },
     { key: "isActive", label: "Status", type: "status" },
     { key: "spentThisMonth", label: "Spent This Month", type: "currency" },
-    { key: "credit", label: "Credit", type: "currency" },
+    { key: "debt", label: "Credit", type: "currency" },
   ];
 
   useEffect(() => {

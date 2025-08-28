@@ -11,8 +11,6 @@ import { Category } from "../models/categoryModel";
 import { Product } from "../models/productModel";
 import connectDB from "../mongoConnect";
 
-
-
 export const createProduct = async (data: any) => {
   try {
     await connectDB();
@@ -40,13 +38,39 @@ export const createProduct = async (data: any) => {
 export const getProduct = async () => {
   await connectDB();
 
-  const data = await Product.find().populate("cat_id", "name").lean();
+  const data = await Product.find()
+    .populate("lots")
+    .populate("cat_id", "name")
+    .lean({ virtuals: true });
 
-  return data.map((product) => ({
-    ...product,
+  return data.map((product: any) => ({
     _id: product._id.toString(),
+    prod_id: product.prod_id,
+    barcode_id: product.barcode_id,
+    name: product.name,
+    isActive: product.isActive,
+    tva: product.tva,
     cat_id: product.cat_id?._id?.toString() || null,
     categoryName: product.cat_id?.name || "-",
+    lots:
+      product.lots?.map((lot: any) => ({
+        _id: lot._id.toString(),
+        lot_id: lot.lot_id,
+        buyPrice: lot.buyPrice,
+        sellPrice: lot.sellPrice,
+        quantity: lot.quantity,
+        isActive: lot.isActive,
+        date: lot.date?.toISOString() || null,
+        createdAt: lot.createdAt?.toISOString() || null,
+        updatedAt: lot.updatedAt?.toISOString() || null,
+        supp_id: lot.supp_id?.toString(),
+        prod_id: lot.prod_id?.toString(),
+      })) ?? [],
+    quantity:
+      product.lots?.reduce(
+        (sum: number, lot: any) => sum + (lot.quantity || 0),
+        0
+      ) || 0,
   }));
 };
 

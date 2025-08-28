@@ -3,7 +3,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import path from "path";
 import fs from "fs";
-import { formatBillNo, formatPhone } from "@/lib/utils";
+import { calculateSubtotal, formatBillNo, formatPhone, formatTableData } from "@/lib/utils";
 import { Proforma, SellPDetails } from "@/lib/models/sellProformaModel";
 import connectDB from "@/lib/mongoConnect";
 import { getInfo } from "@/lib/actions/infoActions";
@@ -87,66 +87,66 @@ function validateInvoiceData(data: any): data is InvoiceData {
   console.log("🔍 Validating invoice data:", JSON.stringify(data, null, 2));
   
   if (!data || typeof data !== "object") {
-    console.error("❌ Data is not an object");
+    console.error("Data is not an object");
     return false;
   }
 
   // Validate required fields
   if (typeof data.total !== "number" || data.total < 0) {
-    console.error("❌ Invalid total:", data.total);
+    console.error("Invalid total:", data.total);
     return false;
   }
   if (
     typeof data.billDate !== "string" ||
     !/^\d{4}-\d{2}-\d{2}$/.test(data.billDate)
   ) {
-    console.error("❌ Invalid billDate:", data.billDate);
+    console.error("Invalid billDate:", data.billDate);
     return false;
   }
   if (!data.client || typeof data.client !== "object") {
-    console.error("❌ Invalid client:", data.client);
+    console.error("Invalid client:", data.client);
     return false;
   }
 
   // Validate products array
   if (!Array.isArray(data.products)) {
-    console.error("❌ Products is not an array:", data.products);
+    console.error("Products is not an array:", data.products);
     return false;
   }
   for (const product of data.products) {
     if (typeof product.prod_name !== "string") {
-      console.error("❌ Invalid product name:", product);
+      console.error("Invalid product name:", product);
       return false;
     }
     if (typeof product.quantity !== "number" || product.quantity < 0) {
-      console.error("❌ Invalid product quantity:", product);
+      console.error("Invalid product quantity:", product);
       return false;
     }
     if (typeof product.sellPrice !== "number" || product.sellPrice < 0) {
-      console.error("❌ Invalid product price:", product);
+      console.error("Invalid product price:", product);
       return false;
     }
   }
 
   // Validate services array
   if (!Array.isArray(data.services)) {
-    console.error("❌ Services is not an array:", data.services);
+    console.error("Services is not an array:", data.services);
     return false;
   }
   for (const service of data.services) {
     if (typeof service.name !== "string") {
-      console.error("❌ Invalid service name:", service);
+      console.error("Invalid service name:", service);
       return false;
     }
     if (
       service.quantity !== undefined &&
       (typeof service.quantity !== "number" || service.quantity < 1)
     ) {
-      console.error("❌ Invalid service quantity:", service);
+      console.error("Invalid service quantity:", service);
       return false;
     }
     if (typeof service.sellPrice !== "number" || service.sellPrice < 0) {
-      console.error("❌ Invalid service price:", service);
+      console.error("Invalid service price:", service);
       return false;
     }
   }
@@ -179,30 +179,9 @@ function drawRightAlignedText(
   doc.text(text, x, y);
 }
 
-function formatTableData(
-  items: Array<Product | Service>
-): Array<Array<string | number | { content: any; styles: any }>> {
-  console.log("📊 Formatting table data for items:", items.length);
-  const formatted = items.map((item) => [
-    "prod_name" in item ? item.prod_name : item.name,
-    item.quantity ?? 1,
-    item.sellPrice,
-    (item.quantity ?? 1) * item.sellPrice,
-  ]);
-  console.log("📊 Formatted data:", formatted);
-  return formatted;
-}
 
-function calculateSubtotal(
-  items: Array<Array<string | number | { content: any; styles: any }>>
-): number {
-  const subtotal = items.reduce(
-    (sum, row) => sum + (typeof row[3] === "number" ? row[3] : 0),
-    0
-  );
-  console.log("💰 Calculated subtotal:", subtotal);
-  return subtotal;
-}
+
+
 
 function getSafeImagePath(logoUrl: string | undefined): string | null {
   console.log("🖼️ Processing logo URL:", logoUrl);
@@ -236,7 +215,7 @@ function getSafeImagePath(logoUrl: string | undefined): string | null {
       const dirContents = fs.readdirSync(path.dirname(filePath));
       console.log("📁 Directory contents:", dirContents);
     } catch (err) {
-      console.error("❌ Failed to read directory:", err);
+      console.error("Failed to read directory:", err);
     }
     return null;
   }
@@ -292,7 +271,7 @@ async function generatePDF(
     companyInfo = await getInfo();
     console.log("🏢 Company info retrieved:", JSON.stringify(companyInfo, null, 2));
   } catch (error) {
-    console.error("❌ Failed to fetch company info:", error);
+    console.error("Failed to fetch company info:", error);
   }
 
   // Company information
@@ -423,13 +402,12 @@ async function generatePDF(
       console.warn("⚠️ No logo path available - continuing without logo");
     }
   } catch (error) {
-    console.error("❌ Logo processing failed:", error);
-    console.error("❌ Error details:", {
+    console.error("Logo processing failed:", error);
+    console.error("Error details:", {
       name: error.name,
       message: error.message,
       stack: error.stack
     });
-    // Continue without logo instead of failing
   }
 
   // Draw bill type
@@ -641,7 +619,7 @@ export async function POST(req: NextRequest) {
 
     // Validate input data
     if (!validateInvoiceData(requestData)) {
-      console.error("❌ Invoice data validation failed");
+      console.error("Invoice data validation failed");
       return NextResponse.json(
         { error: "Invalid invoice data" },
         { status: 400 }
@@ -726,20 +704,20 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("❌ PDF generation error:", error);
-    console.error("❌ Error stack:", error.stack);
+    console.error("PDF generation error:", error);
+    console.error("Error stack:", error.stack);
 
     // Handle specific errors
     if (error instanceof Error) {
       if (error.message.includes("validation")) {
-        console.error("❌ Validation error detected");
+        console.error("Validation error detected");
         return NextResponse.json(
           { error: "Data validation failed" },
           { status: 400 }
         );
       }
       if (error.message.includes("duplicate")) {
-        console.error("❌ Duplicate record error detected");
+        console.error("Duplicate record error detected");
         return NextResponse.json(
           { error: "Duplicate record" },
           { status: 409 }
@@ -763,7 +741,7 @@ export async function GET(req: NextRequest) {
     console.log("🔍 Proforma ID:", proformaId);
 
     if (!proformaId) {
-      console.error("❌ No proforma ID provided");
+      console.error("No proforma ID provided");
       return NextResponse.json(
         { error: "ProformaId is required" },
         { status: 400 }
@@ -778,7 +756,7 @@ export async function GET(req: NextRequest) {
     const proforma = await Proforma.findById(proformaId).populate("clientId");
 
     if (!proforma) {
-      console.error("❌ Proforma not found");
+      console.error("Proforma not found");
       return NextResponse.json(
         { error: "Proforma not found" },
         { status: 404 }
@@ -792,7 +770,7 @@ export async function GET(req: NextRequest) {
     const details = await SellPDetails.find({ proformaId });
 
     if (!details || details.length === 0) {
-      console.error("❌ No proforma details found");
+      console.error("No proforma details found");
       return NextResponse.json(
         { error: "Proforma details not found" },
         { status: 404 }
@@ -852,12 +830,12 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("❌ PDF recreation error:", error);
-    console.error("❌ Error stack:", error.stack);
+    console.error("PDF recreation error:", error);
+    console.error("Error stack:", error.stack);
 
     // Handle specific database errors
     if (error.name === "CastError") {
-      console.error("❌ Cast error - invalid ID format");
+      console.error("Cast error - invalid ID format");
       return NextResponse.json(
         { error: "Invalid proforma ID format" },
         { status: 400 }
@@ -865,7 +843,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (error.name === "ValidationError") {
-      console.error("❌ Database validation error");
+      console.error("Database validation error");
       return NextResponse.json(
         { error: "Database validation error" },
         { status: 400 }

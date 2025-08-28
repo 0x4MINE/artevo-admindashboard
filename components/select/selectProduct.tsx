@@ -6,6 +6,7 @@ import { Column } from "@/types/Column";
 import { getProduct } from "@/lib/actions/productsActions";
 import { useFilterStore } from "@/lib/store/useFilter";
 import { toast } from "sonner";
+import ProductPopup from "../popups/ProductsPopup";
 
 type SelectProductProps = {
   isOpen: boolean;
@@ -20,6 +21,7 @@ export default function SelectProduct({
 }: SelectProductProps) {
   const [search, setSearch] = useState("");
   const [data, setData] = useState<any[]>([]);
+  const [popUp, setPopUp] = useState(false);
   const { filters } = useFilterStore();
 
   const columns: Column[] = [
@@ -52,13 +54,18 @@ export default function SelectProduct({
     <Popup isOpen={isOpen} onClose={onClose}>
       <div className="h-[60vh] w-full">
         {/* Header */}
-        <div className="header flex justify-between items-center">
-          <div className="w-10" />
-          <h1 className="text-2xl text-center font-bold text-title">
+        <div className="header relative flex justify-between items-center">
+          <div />
+
+          <h1 className="absolute left-1/2 -translate-x-1/2 text-2xl font-bold text-title">
             SELECT A PRODUCT
           </h1>
-          <button className="py-2 px-4 bg-btn-primary text-white rounded-[10px] font-bold">
-            +
+
+          <button
+            onClick={() => setPopUp(true)}
+            className="py-2 px-4 bg-btn-primary text-white rounded-[10px] font-bold flex items-center justify-center gap-3"
+          >
+            <span className="font-bold text-2xl">+</span> New PRODUCT
           </button>
         </div>
 
@@ -85,6 +92,14 @@ export default function SelectProduct({
           }}
         />
       </div>
+      <Popup isOpen={popUp} onClose={() => setPopUp(false)}>
+        <ProductPopup
+          setData={setData}
+          setPopUp={setPopUp}
+          setEditProduct={() => {}}
+          editProduct={null}
+        />
+      </Popup>
     </Popup>
   );
 }

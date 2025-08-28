@@ -106,3 +106,31 @@ export function formatBillNo(num: number): string {
   const formatted = `${String(num).padStart(5, "0")}/${year}`;
   return formatted;
 }
+
+
+
+
+export function formatTableData(
+  items: Array<Product | Service>
+): Array<Array<string | number | { content: any; styles: any }>> {
+  console.log("📊 Formatting table data for items:", items.length);
+  const formatted = items.map((item) => [
+    "prod_name" in item ? item.prod_name : item.name,
+    item.quantity ?? 1,
+    item.sellPrice,
+    (item.quantity ?? 1) * item.sellPrice,
+  ]);
+  console.log("📊 Formatted data:", formatted);
+  return formatted;
+}
+
+export function calculateSubtotal(
+  items: Array<Array<string | number | { content: any; styles: any }>>
+): number {
+  const subtotal = items.reduce(
+    (sum, row) => sum + (typeof row[3] === "number" ? row[3] : 0),
+    0
+  );
+  console.log("💰 Calculated subtotal:", subtotal);
+  return subtotal;
+}

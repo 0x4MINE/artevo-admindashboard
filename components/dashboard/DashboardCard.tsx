@@ -13,7 +13,7 @@ function DashboardCard({ label, amount, Icon }: Props) {
   return (
     <motion.div
       whileHover={{ y: -5, boxShadow: "0 10px 25px -12px rgba(0,0,0,0.1) " }}
-      className="flex items-center justify-center gap-6 bg-primary w-full  px-6 py-4 rounded-2xl shadow-sm hover:shadow-md transition"
+      className="flex items-center justify-center gap-6 bg-primary w-full  px-6 py-4 rounded-2xl shadow-sm hover:shadow-md "
     >
       <div className="bg-secondary p-4 rounded-full">
         <Icon size={32} className="text-btn-secondary " />

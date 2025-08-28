@@ -79,7 +79,7 @@ const AddTextInput = forwardRef<HTMLInputElement, Props>(({
           className={clsx(
             // Base styles
             "bg-secondary text-title p-4 rounded-2xl text-center placeholder:text-center w-full",
-            "border border-transparent transition-colors duration-200",
+            "border border-transparent",
             "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent",
             
             // Disabled styles

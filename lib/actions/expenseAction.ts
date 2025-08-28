@@ -56,6 +56,7 @@ export const getExpense = async () => {
       ...e.user,
       _id: e.user._id.toString(),
     },
+    isActive: true,
   }));
 
   return cleaned;
@@ -68,14 +69,14 @@ export const updateExpense = async (id: string, data: any) => {
     new: true,
     runValidators: true,
   })
-    .populate("user") 
+    .populate("user")
     .lean();
 
   if (!updatedExpense) throw new Error("Expense not found");
 
   const result = JSON.parse(JSON.stringify(updatedExpense));
 
-  return {success:true,data:result};
+  return { success: true, data: result };
 };
 
 export const deleteExpense = deleteOne(Expense);
