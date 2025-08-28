@@ -1,16 +1,16 @@
 import { Lot } from "@/lib/models/lotModel";
 import { Product } from "@/lib/models/productModel";
+import { User } from "@/lib/models/userModel";
 import connectDB from "@/lib/mongoConnect";
 import { NextResponse } from "next/server";
 
 export async function GET() {
   await connectDB();
-  const user = new Lot({
-    lot_id: "041",
-    buyPrice: 220,
-    sellPrice: 280,
-    supp_id: "689b2867f807e1006730c744",
-    prod_id: "6899dd9b602214f0e7b4c475",
+  const user = new User({
+    id:'U2025-001',
+    name:"tester",
+    password:"tester123",
+
   });
 
   await user.save();

@@ -94,7 +94,7 @@ export default function Sidebar({ currentUser }: { currentUser: any }) {
         transition={{ duration: 0.4 }}
         className={`
           fixed md:relative z-50
-          h-full w-66 flex flex-col justify-between
+          h-full w-70 flex flex-col justify-between
           bg-background p-6 transition-transform duration-300 md:transition-none
           ${isOpen ? "translate-x-0" : "-translate-x-full"} 
           md:translate-x-0 md:opacity-100 md:!flex

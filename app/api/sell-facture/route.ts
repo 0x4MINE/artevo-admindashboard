@@ -9,6 +9,7 @@ import path from "path";
 import fs from "fs/promises";
 import mongoose from "mongoose";
 import { ToWords } from "to-words";
+import { ISellFact, SellFact } from "@/lib/models/sellFactureModel";
 
 const toWords = new ToWords({
   localeCode: "fr-FR",
@@ -76,7 +77,6 @@ interface FactureData {
   paymentMethod?: string;
 }
 
-// Error types for better frontend handling
 const ERROR_TYPES = {
   BON_NOT_FOUND: "BON_NOT_FOUND",
   BON_DETAILS_NOT_FOUND: "BON_DETAILS_NOT_FOUND",
@@ -86,7 +86,6 @@ const ERROR_TYPES = {
   INTERNAL_ERROR: "INTERNAL_ERROR",
 } as const;
 
-// User-friendly error messages
 const ERROR_MESSAGES: Record<string, string> = {
   BON_NOT_FOUND: "Sales transaction not found",
   BON_DETAILS_NOT_FOUND: "Transaction details not found",
@@ -96,7 +95,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   INTERNAL_ERROR: "An unexpected error occurred",
 };
 
-// Helper function to create user-friendly error responses
+
 function createErrorResponse(
   errorType: string,
   message?: string,
@@ -115,7 +114,6 @@ function createErrorResponse(
   );
 }
 
-// Image path validation
 async function getSafeImagePath(logoUrl?: string): Promise<string | null> {
   if (!logoUrl) return null;
 
@@ -135,7 +133,6 @@ async function getSafeImagePath(logoUrl?: string): Promise<string | null> {
   }
 }
 
-// Logo loading function
 async function loadLogoAsBase64(logoUrl: string): Promise<LogoData | null> {
   try {
     const safeImagePath = await getSafeImagePath(logoUrl);
@@ -169,7 +166,6 @@ async function loadLogoAsBase64(logoUrl: string): Promise<LogoData | null> {
   }
 }
 
-// Helper function to draw right-aligned text (keeping original style)
 function drawRightAlignedText(
   doc: jsPDF,
   text: string,
@@ -194,7 +190,6 @@ function drawRightAlignedText(
   doc.text(text, x, y);
 }
 
-// Validation function
 function validateFactureRequest(bonId: string | null): asserts bonId is string {
   if (!bonId) {
     throw new Error("Bon ID is required");
@@ -205,7 +200,6 @@ function validateFactureRequest(bonId: string | null): asserts bonId is string {
   }
 }
 
-// Calculate totals with TVA
 function calculateTotals(
   products: ProductService[],
   services: ProductService[]
@@ -344,8 +338,8 @@ async function generateFacturePDF(
     doc.setFontSize(20);
     doc.text(billType, billTypeX, billTypeY);
 
-    // Rectangle (keeping original style)
-    doc.rect(380, 150, 115, 30);
+    // Bill type Rectangle 
+    //doc.rect(380, 150, 115, 30);
 
     // Prepare table data
     const productsHeaders = [["Product", "Qty", "Price", "TVA", "Total"]];
@@ -357,7 +351,7 @@ async function generateFacturePDF(
       p.quantity.toString(),
       `${p.sellPrice.toFixed(2)} DA`,
       `${p.tva || 0}%`,
-      `${(p.sellPrice * p.quantity).toFixed(2)} DA`,
+      `${((p.sellPrice * p.quantity*((p.tva||0)/100)) + p.sellPrice).toFixed(2)} DA`,
     ]);
 
     // Format services data (keeping original style)
@@ -366,13 +360,13 @@ async function generateFacturePDF(
       s.quantity.toString(),
       `${s.sellPrice.toFixed(2)} DA`,
       `${s.tva || 0}%`,
-      `${(s.sellPrice * s.quantity).toFixed(2)} DA`,
+      `${((s.sellPrice * s.quantity*((s.tva||0)/100))+s.sellPrice).toFixed(2)} DA`,
     ]);
 
     // Add totals row for products
     if (products.length > 0) {
       const productsTotal = factureData.products.reduce(
-        (sum, p) => sum + (p.sellPrice * p.quantity * p.tva || 1),
+        (sum, p) => sum + ((p.sellPrice * p.quantity*((p.tva||0)/100)) + p.sellPrice),
         0
       );
       products.push([
@@ -400,7 +394,7 @@ async function generateFacturePDF(
     if (services.length > 0) {
       console.log(services);
       const servicesTotal = factureData.services.reduce(
-        (sum, s) => sum + s.sellPrice * s.quantity * s.tva || 1,
+        (sum, s) => sum + ((s.sellPrice * s.quantity*((s.tva||0)/100))+s.sellPrice),
         0
       );
       services.push([
@@ -581,12 +575,8 @@ async function generateFacturePDF(
   }
 }
 
-function numberToFrenchWords(amount: number): string {
-  const rounded = Math.round(amount);
-  return `${rounded.toLocaleString("fr-FR")}`;
-}
 
-// Main GET handler
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -658,7 +648,7 @@ export async function GET(req: NextRequest) {
       total,
       billDate,
       billNo,
-      paymentMethod: "Cheque", // Default payment method
+      paymentMethod: "Cheque", 
     };
 
     // Generate PDF
@@ -694,4 +684,58 @@ export async function GET(req: NextRequest) {
       "An unexpected error occurred while generating the invoice"
     );
   }
+}
+
+
+export async function POST(req:NextRequest) {
+  const {bonId,paymentMethod,billType} = await req.json()
+  validateFactureRequest(bonId);
+
+  await connectDB();
+
+  const bon = await SellBon.findById(bonId).populate("clientId");
+  if (!bon) {
+    return createErrorResponse(
+      ERROR_TYPES.BON_NOT_FOUND,
+      "Sales transaction not found"
+    );
+  }
+
+  const details = await SellBDetails.find({ sellBonId: bonId });
+  if (!details.length) {
+    return createErrorResponse(
+      ERROR_TYPES.BON_DETAILS_NOT_FOUND,
+      "Transaction details not found"
+    );
+  }
+
+  const facture = await SellFact.create({
+  
+    date:bon.date,
+    userId:bon.userId,
+    clientId: bon.clientId,
+    reglement:paymentMethod ?? "cash",
+    type:billType,
+  })
+  const products = details
+    .filter((d) => d.type === "product")
+    .map((d) => ({
+      _id: d._id,
+      name: d.name,
+      quantity: d.quantity,
+      sellPrice: d.price,
+      tva: d.tva || 0,
+      type: "product" as const,
+    }));
+
+  const services = details
+    .filter((d) => d.type === "service")
+    .map((d) => ({
+      _id: d._id,
+      name: d.name,
+      quantity: d.quantity,
+      sellPrice: d.price,
+      tva: d.tva || 0,
+      type: "service" as const,
+    }));
 }

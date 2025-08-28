@@ -39,7 +39,7 @@ const SellFactSchema = new Schema<ISellFact>(
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     clientId: { type: Schema.Types.ObjectId, ref: "Client", required: true },
     reglement: { type: String, required: true, trim: true },
-    originalCode: { type: String, trim: true }, // Reference to original facture (for returns)
+    originalCode: { type: String, trim: true }, 
     type: {
       type: String,
       required: true,

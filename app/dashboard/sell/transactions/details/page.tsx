@@ -604,12 +604,7 @@ function SellTransactionDetails() {
         onClose={() => setClientPopup(false)}
         onSelect={handleClientSelect}
       />
-      <PayPopup
-        isOpen={payPopup}
-        onClose={() => setPayPopup(false)}
-        paymentMethod={paymentMethod}
-        setPaymentMethod={setPaymentMethod}
-      />
+
       <SuccessPopup
         isOpen={successPopup}
         onClose={() => setSuccessPopup(false)}
@@ -629,10 +624,15 @@ function SellTransactionDetails() {
           window.open(
             `${BASEURL}/api/sell-facture?format=a6&bonId=${bonId}`,
             "_blank"
-          );
-        }}
+          );        }}
         total={calculations.total}
         clientName={client?.name || ""}
+      />
+            <PayPopup
+        isOpen={payPopup}
+        onClose={() => setPayPopup(false)}
+        paymentMethod={paymentMethod}
+        setPaymentMethod={setPaymentMethod}
       />
     </div>
   );
