@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 type Props = {
   values: Record<string, string>;
-  title: String;
+  title: string;
 };
 
 function StatCard({ values, title }: Props) {

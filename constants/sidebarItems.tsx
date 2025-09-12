@@ -4,6 +4,8 @@ import {
   Package,
   Settings,
   ShoppingCart,
+  SquareDashedKanban,
+  SquareKanban,
   Wallet,
 } from "lucide-react";
 
@@ -12,6 +14,11 @@ export const navItems = [
     label: "Dashboard",
     icon: <LayoutDashboard />,
     href: "/dashboard",
+  },
+  {
+    label: "Managment",
+    icon: <SquareKanban />,
+    href: "/dashboard/todo",
   },
   {
     label: "Articles",
@@ -31,7 +38,7 @@ export const navItems = [
       { label: "Transactions", href: "/dashboard/sell/transactions" },
       { label: "Proforma", href: "/dashboard/sell/proforma" },
       { label: "Payment", href: "/dashboard/sell/payment" },
-      { label: "Return" },
+      { label: "Return", href: "/dashboard/sell/return" },
     ],
   },
   {
@@ -41,8 +48,7 @@ export const navItems = [
       { label: "Suppliers", href: "/dashboard/suppliers" },
       { label: "Transactions", href: "/dashboard/buy/transactions" },
       { label: "Payment", href: "/dashboard/buy/payment" },
-
-      { label: "Return" },
+      { label: "Return", href: "/dashboard/buy/return" },
     ],
   },
   {

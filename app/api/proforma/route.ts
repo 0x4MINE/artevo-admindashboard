@@ -295,11 +295,11 @@ async function generatePDF(
     CONFIG.margins.left,
     70 + generalInfo.length * 16,
   ];
-  const [imgX, imgY, imgW, imgH] = [370, 10, 120, 120];
+  const [imgX, imgY, imgW, imgH] = [380, 40, 100, 100];
   const [clientInfoX, clientInfoY] = [350, 70 + generalInfo.length * 16];
   const [billType, billTypeX, billTypeY] = [
     "Proforma",
-    imgX + 10,
+    imgX ,
     imgY + imgH + 47,
   ];
   const [table, tableX, tableY] = [

@@ -11,7 +11,10 @@ import { Column } from "@/types/Column";
 import { Calendar, RefreshCcw } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import React, { useEffect, useMemo, useState } from "react";
-import { getNextNumber, createBuyTransaction } from "@/lib/actions/transactionActions";
+import {
+  getNextNumber,
+  createBuyTransaction,
+} from "@/lib/actions/transactionActions";
 import { useUserStore } from "@/lib/store/useUser";
 import { toast, Toaster } from "sonner";
 import { BASEURL } from "@/constants/auth";
@@ -26,13 +29,17 @@ function Details() {
   const { user } = useUserStore();
 
   const [billNo, setBillNo] = useState<string>("...");
-  const [billDate, setBillDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [billDate, setBillDate] = useState<string>(
+    new Date().toISOString().split("T")[0]
+  );
 
   const [supplier, setSupplier] = useState<any>({});
   const [products, setProducts] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
   const [paymentMethod, setPaymentMethod] = useState("Cash");
-  const [savedTransactionId, setSavedTransactionId] = useState<string | null>(null);
+  const [savedTransactionId, setSavedTransactionId] = useState<string | null>(
+    null
+  );
   const [savedBuyFactId, setSavedBuyFactId] = useState<number | null>(null);
   const [originalBill, setOriginalBill] = useState("");
 
@@ -135,10 +142,17 @@ function Details() {
 
       // Validate products
       const invalidProducts = products.filter(
-        (p) => !p.prod_name || !p.quantity || !p.buyPrice || p.quantity <= 0 || p.buyPrice <= 0
+        (p) =>
+          !p.prod_name ||
+          !p.quantity ||
+          !p.buyPrice ||
+          p.quantity <= 0 ||
+          p.buyPrice <= 0
       );
       if (invalidProducts.length > 0) {
-        toast.error("Please ensure all products have valid name, quantity, and buy price");
+        toast.error(
+          "Please ensure all products have valid name, quantity, and buy price"
+        );
         return;
       }
 
@@ -150,7 +164,7 @@ function Details() {
         toast.error("Please ensure all services have valid name and buy price");
         return;
       }
-
+      console.log(products);
       const transactionData = {
         date: billDate,
         userId: user.id,
@@ -159,6 +173,7 @@ function Details() {
         originalCode: originalBill || undefined,
         type: "purchase" as const,
         products: products.map((product) => ({
+          lot_id: product._id,
           prod_name: product.prod_name,
           prod_oid: product.prod_oid,
           quantity: Number(product.quantity),
@@ -179,7 +194,9 @@ function Details() {
 
       setSavedTransactionId(result._id);
       setSavedBuyFactId(result.buyFactId);
-      toast.success(result.message || "Purchase transaction saved successfully");
+      toast.success(
+        result.message || "Purchase transaction saved successfully"
+      );
       setSuccessPopup(true);
     } catch (error: any) {
       console.error("Error saving transaction:", error);
@@ -248,12 +265,16 @@ function Details() {
               />
               <span className="flex items-center gap-2 cursor-pointer">
                 {formattedDate}
-                <Calendar className="bg-btn-primary text-white p-1 rounded-[6px]" size={25} />
+                <Calendar
+                  className="bg-btn-primary text-white p-1 rounded-[6px]"
+                  size={25}
+                />
               </span>
             </div>
           </div>
           <p>
-            Payment Method: <span className="font-semibold">{paymentMethod}</span>
+            Payment Method:{" "}
+            <span className="font-semibold">{paymentMethod}</span>
             <button
               onClick={() => setPayPopup(true)}
               className="ml-2 text-btn-primary hover:underline"
@@ -406,17 +427,26 @@ function Details() {
         onClose={() => setSuccessPopup(false)}
         onPrintBonLarge={() => {
           if (savedTransactionId) {
-            window.open(BASEURL + "/api/bon?format=a5&bonId=" + savedTransactionId, "_blank");
+            window.open(
+              BASEURL + "/api/bon?format=a5&bonId=" + savedTransactionId,
+              "_blank"
+            );
           }
         }}
         onPrintBonMini={() => {
           if (savedTransactionId) {
-            window.open(BASEURL + "/api/bon?format=a6&bonId=" + savedTransactionId, "_blank");
+            window.open(
+              BASEURL + "/api/bon?format=a6&bonId=" + savedTransactionId,
+              "_blank"
+            );
           }
         }}
         onPrintFacture={() => {
           if (savedTransactionId) {
-            window.open(BASEURL + "/api/facture?bonId=" + savedTransactionId, "_blank");
+            window.open(
+              BASEURL + "/api/facture?bonId=" + savedTransactionId,
+              "_blank"
+            );
           }
         }}
         total={total}

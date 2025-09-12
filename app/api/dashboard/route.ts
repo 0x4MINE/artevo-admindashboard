@@ -3,7 +3,6 @@ import { Product } from "@/lib/models/productModel";
 import { Service } from "@/lib/models/serviceModel";
 import { Supplier } from "@/lib/models/supplierModel";
 import connectDB from "@/lib/mongoConnect";
-import type { NextApiRequest, NextApiResponse } from "next";
 import { NextResponse } from "next/server";
 
 // Example: Replace these with real DB/service calls
@@ -65,10 +64,9 @@ async function getTopClients() {
   ];
 }
 
-export async function GET(req: NextApiRequest, res: NextApiResponse) {
+export async function GET(req: Request) {
   try {
-    // Parallel fetch for speed
-    console.log("fetchiinngg ...");
+    console.log("fetching dashboard ...");
     const [cards, stats, topClients] = await Promise.all([
       getDashboardCards(),
       getStats(),
@@ -78,6 +76,9 @@ export async function GET(req: NextApiRequest, res: NextApiResponse) {
     return NextResponse.json({ cards, stats, topClients });
   } catch (error) {
     console.error("Dashboard API error:", error);
-    res.status(500).json({ error: "Failed to fetch dashboard data" });
+    return NextResponse.json(
+      { error: "Failed to fetch dashboard data" },
+      { status: 500 }
+    );
   }
 }

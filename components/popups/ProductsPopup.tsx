@@ -187,7 +187,7 @@ export default function ProductPopup({
         {editProduct ? "EDIT PRODUCT" : "ADD PRODUCT"}
       </h1>
 
-      {/* Debug info - remove this in production */}
+      {/* Debug info */}
       <div className="text-xs text-gray-500 bg-gray-100 p-2 rounded">
         <div>Edit Mode: {editProduct ? 'Yes' : 'No'}</div>
         <div>Product ID: {form.prod_id}</div>

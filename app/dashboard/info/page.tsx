@@ -3,6 +3,7 @@ import AddTextInput from "@/components/forms/AddTextInput";
 import { useEffect, useRef, useState } from "react";
 import { saveInfo, getInfo } from "@/lib/actions/infoActions";
 import { toast, Toaster } from "sonner";
+import Image from "next/image";
 
 function Info() {
   const [form, setForm] = useState({
@@ -195,7 +196,7 @@ function Info() {
               <div className="flex flex-col items-center space-y-4">
                 <div className="w-48 h-48 bg-secondary border-2 border-dashed border-gray-300 rounded-2xl flex items-center justify-center">
                   {form.logoUrl ? (
-                    <img
+                    <Image
                       src={form.logoUrl}
                       className="w-full h-full object-cover rounded-2xl"
                       alt="Company Logo"

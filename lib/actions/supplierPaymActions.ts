@@ -65,7 +65,7 @@ export async function updateSupplierPaym(id: string, data: any) {
   try {
     await connectDB();
 
-    let payment = await SupplierPaym.findByIdAndUpdate(id, data, {
+    const payment = await SupplierPaym.findByIdAndUpdate(id, data, {
       new: true,
     })
       .populate("supplier_id", "name")

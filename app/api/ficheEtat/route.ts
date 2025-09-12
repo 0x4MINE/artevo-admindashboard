@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 const ficheDetatA5 = () => {
   const doc = new jsPDF({ unit: "pt", format: "a5" });
 
-  const font = (type) => {
+  const font = (type: string) => {
     return doc.setFont("times", type);
   };
 
@@ -96,10 +96,10 @@ const ficheDetatA5 = () => {
 
   autoTable(doc, {
     margin: { left: pageW - totalTableWidth - rPadding },
-    startY:
-      doc.lastAutoTable?.finalY !== undefined
-        ? doc.lastAutoTable.finalY + 10
-        : tableY + 10,
+    startY: doc.lastAutoTable.finalY + 10,
+    // doc.lastAutoTable?.finalY !== undefined
+    //   ? doc.lastAutoTable.finalY + 10
+    //   : tableY + 10,
     head: [["A payer", "Versee", "Reste"]],
     body: [["900,000,000.00 DA", "260.00 DA", "900,900,900.00 DA"]],
     bodyStyles: {
@@ -132,7 +132,7 @@ const ficheDetatA5 = () => {
 const ficheDetatA4 = () => {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
 
-  const font = (type) => {
+  const font = (type: string) => {
     return doc.setFont("times", type);
   };
 
@@ -223,10 +223,10 @@ const ficheDetatA4 = () => {
 
   autoTable(doc, {
     margin: { left: pageW - totalTableWidth - rPadding },
-    startY:
-      doc.lastAutoTable?.finalY !== undefined
-        ? doc.lastAutoTable.finalY + 10
-        : tableY + 10,
+    startY: doc.lastAutoTable.finalY + 10,
+    // doc.lastAutoTable?.finalY !== undefined
+    //   ? doc.lastAutoTable.finalY + 10
+    //   : tableY + 10,
     head: [["A payer", "Versee", "Reste"]],
     body: [["900,000,000.00 DA", "260.00 DA", "900,900,900.00 DA"]],
     bodyStyles: {

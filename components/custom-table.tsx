@@ -273,10 +273,6 @@ export default function CustomTable({
     [onDoubleClick]
   );
 
-  {
-    loading && <Loader />;
-  }
-
   return (
     <div
       className={`bg-background rounded-2xl shadow-sm border border-secondary overflow-hidden ${className}`}
