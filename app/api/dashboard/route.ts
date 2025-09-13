@@ -1,11 +1,14 @@
+import { BuyFact } from "@/lib/models/buyFactureModel";
 import { Client } from "@/lib/models/clientModel";
+import { Expense } from "@/lib/models/expenseModel";
 import { Product } from "@/lib/models/productModel";
+import { SellBDetails, SellBon } from "@/lib/models/sellBonModel";
 import { Service } from "@/lib/models/serviceModel";
 import { Supplier } from "@/lib/models/supplierModel";
 import connectDB from "@/lib/mongoConnect";
+import { getStatsForModel } from "@/lib/utils/dashboardUtils";
 import { NextResponse } from "next/server";
 
-// Example: Replace these with real DB/service calls
 async function getDashboardCards() {
   await connectDB();
   const [clients, suppliers, products, services] = await Promise.all([
@@ -67,13 +70,37 @@ async function getTopClients() {
 export async function GET(req: Request) {
   try {
     console.log("fetching dashboard ...");
-    const [cards, stats, topClients] = await Promise.all([
+    const [cards, topClients] = await Promise.all([
       getDashboardCards(),
-      getStats(),
       getTopClients(),
     ]);
+    const [sell] = await Promise.all([
+      getSellStats(),
 
-    return NextResponse.json({ cards, stats, topClients });
+    ]);
+
+    const buy = await getStatsForModel(BuyFact, "price");
+    const expenses = await getStatsForModel(Expense, "price");
+
+    const profit = {
+      today: sell.today - buy.today - expenses.today,
+      week: sell.week - buy.week - expenses.week,
+      month: sell.month - buy.month - expenses.month,
+      year: sell.year - buy.year - expenses.year,
+      overall: sell.overall - buy.overall - expenses.overall,
+    };
+    const stats = {
+      sell,
+      buy,
+      expenses,
+      profit,
+    };
+    console.log(stats);
+    return NextResponse.json({
+      cards,
+      stats,
+      topClients,
+    });
   } catch (error) {
     console.error("Dashboard API error:", error);
     return NextResponse.json(
@@ -81,4 +108,50 @@ export async function GET(req: Request) {
       { status: 500 }
     );
   }
+}
+
+import { startOfDay, startOfWeek, startOfMonth, startOfYear } from "date-fns";
+
+async function getSellStats() {
+  const now = new Date();
+  const periods = {
+    today: startOfDay(now),
+    week: startOfWeek(now, { weekStartsOn: 0 }),
+    month: startOfMonth(now),
+    year: startOfYear(now),
+  };
+
+  async function sumSince(date: Date) {
+    const res = await SellBDetails.aggregate([
+      {
+        $lookup: {
+          from: "sellbons",
+          localField: "sellBonId",
+          foreignField: "_id",
+          as: "bon",
+        },
+      },
+      { $unwind: "$bon" },
+      { $match: { "bon.createdAt": { $gte: date } } },
+      {
+        $project: {
+          lineTotal: {
+            $multiply: ["$price", "$quantity"],
+          },
+        },
+      },
+      { $group: { _id: null, total: { $sum: "$lineTotal" } } },
+    ]);
+    return res[0]?.total || 0;
+  }
+
+  const [today, week, month, year, overall] = await Promise.all([
+    sumSince(periods.today),
+    sumSince(periods.week),
+    sumSince(periods.month),
+    sumSince(periods.year),
+    sumSince(new Date(0)),
+  ]);
+
+  return { today, week, month, year, overall };
 }
