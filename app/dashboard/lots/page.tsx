@@ -3,7 +3,7 @@ import ActiveFilterBar from "@/components/ActiveFilterBar";
 import CustomTable from "@/components/custom-table";
 import ContentNavbar from "@/components/layout/ContentNavbar";
 import Loader from "@/components/layout/Loader";
-import { getLotsPaginated } from "@/lib/actions/lotActions"; // Changed to getLotsPaginated
+import { getLotsPaginated } from "@/lib/actions/lotActions";
 import { useFilterStore } from "@/lib/store/useFilter";
 import { Column } from "@/types/Column";
 import React, { useEffect, useState } from "react";
@@ -34,11 +34,12 @@ function Lots() {
       try {
         setLoading(true);
         const { lots, total } = await getLotsPaginated(
-          currentPage, 
-          itemsPerPage, 
-          search
+          currentPage,
+          itemsPerPage,
+          search,
+          filters
         );
-        console.log(lots)
+        console.log(lots);
         setData(lots);
         setTotalItems(total);
       } catch (error) {
@@ -50,7 +51,7 @@ function Lots() {
     }
 
     fetchData();
-  }, [filters, currentPage, search]); 
+  }, [filters, currentPage, search]);
 
   const handleSearchChange = (newSearch: string) => {
     setSearch(newSearch);
@@ -64,13 +65,13 @@ function Lots() {
       <div className="p-8">
         <ActiveFilterBar filteredData={data} />
         {loading ? (
-          <Loader/>
+          <Loader />
         ) : (
-          <CustomTable 
-            showPagination 
-            itemsPerPage={itemsPerPage} 
-            columns={columns} 
-            data={data} 
+          <CustomTable
+            showPagination
+            itemsPerPage={itemsPerPage}
+            columns={columns}
+            data={data}
             searchTerm={search}
             currentPage={currentPage}
             onPageChange={setCurrentPage}

@@ -214,46 +214,106 @@ export const getLotsByProductId = async (productId: string) => {
 export const getLotsPaginated = async (
   page: number = 1,
   limit: number = 5,
-  searchTerm: string = ""
+  searchTerm: string = "",
+  filters: Partial<{
+    dateRange: [string, string];
+    quantityRange: [number, number];
+    isActive: boolean | null;
+  }> = {}
 ) => {
   await connectDB();
 
   const skip = (page - 1) * limit;
 
-  const query = searchTerm
-    ? {
+  const match: any = {};
+
+  // --- Normal filters ---
+  if (filters.dateRange?.[0] && filters.dateRange?.[1]) {
+    match.date = {
+      $gte: new Date(filters.dateRange[0]),
+      $lte: new Date(filters.dateRange[1]),
+    };
+  }
+
+  if (filters.quantityRange) {
+    match.quantity = {
+      $gte: filters.quantityRange[0],
+      $lte: filters.quantityRange[1],
+    };
+  }
+
+  if (filters.isActive !== null && filters.isActive !== undefined) {
+    match.isActive = filters.isActive;
+  }
+
+  // --- Aggregation ---
+  const pipeline: any[] = [
+    { $match: match },
+
+    // supplier join
+    {
+      $lookup: {
+        from: "suppliers",
+        localField: "supp_id",
+        foreignField: "_id",
+        as: "supplier",
+      },
+    },
+    { $unwind: { path: "$supplier", preserveNullAndEmptyArrays: true } },
+
+    // product join
+    {
+      $lookup: {
+        from: "products",
+        localField: "prod_id",
+        foreignField: "_id",
+        as: "product",
+      },
+    },
+    { $unwind: { path: "$product", preserveNullAndEmptyArrays: true } },
+  ];
+
+  // --- Search term across lot_id, supplier.name, product.name ---
+  if (searchTerm) {
+    pipeline.push({
+      $match: {
         $or: [
           { lot_id: { $regex: searchTerm, $options: "i" } },
-          { "supp_id.name": { $regex: searchTerm, $options: "i" } },
+          { "supplier.name": { $regex: searchTerm, $options: "i" } },
+          { "product.name": { $regex: searchTerm, $options: "i" } },
         ],
-      }
-    : {};
+      },
+    });
+  }
 
+  // --- Sorting and pagination ---
+  pipeline.push(
+    { $sort: { date: -1 } },
+    { $skip: skip },
+    { $limit: limit }
+  );
+
+  // --- Count for pagination ---
   const [lots, total] = await Promise.all([
-    Lot.find(query)
-      .sort({ date: -1 })
-      .populate("supp_id", "name")
-      .populate("prod_id", "name")
-      .skip(skip)
-      .limit(limit)
-      .lean()
-      .exec(),
-    Lot.countDocuments(query),
+    Lot.aggregate(pipeline),
+    Lot.aggregate([...pipeline.slice(0, -3), { $count: "count" }]),
   ]);
+
+  const totalCount = total[0]?.count || 0;
 
   return {
     lots: lots.map((lot: any) => ({
       ...lot,
       _id: lot._id.toString(),
-      supp_id: lot.supp_id.supp_id,
-      supp_name: lot.supp_id.name,
-      prod_id: lot.prod_id
-        ? { ...lot.prod_id, _id: lot.prod_id._id.toString() }
+      supp_id: lot.supplier?._id?.toString() || null,
+      supp_name: lot.supplier?.name || "",
+      prod_id: lot.product
+        ? { ...lot.product, _id: lot.product._id.toString() }
         : null,
       date: lot.date ? lot.date.toISOString() : null,
       createdAt: lot.createdAt?.toISOString() || null,
       updatedAt: lot.updatedAt?.toISOString() || null,
     })),
-    total,
+    total: totalCount,
   };
 };

@@ -24,6 +24,7 @@ function NewProjectPopup({
   const [form, setForm] = useState({
     name: "",
     description: "",
+    deadline: null,
   });
 
   const addProject = async () => {
@@ -33,6 +34,7 @@ function NewProjectPopup({
       const newProject = await createProject({
         name: form.name.trim(),
         description: form.description?.trim(),
+        deadline: form.deadline,
         status: "pending",
         tasks: [],
       });
@@ -50,6 +52,7 @@ function NewProjectPopup({
     <Popup isOpen={isOpen} onClose={onClose}>
       <form
         onSubmit={(e) => {
+          e.preventDefault();
           addProject();
           setForm({ name: "", description: "" });
           onClose();
@@ -80,6 +83,12 @@ function NewProjectPopup({
             placeholder="Enter project description (optional)"
           />
         </div>
+        <AddTextInput
+          type="date"
+          placeholder="Deadline"
+          value={form.deadline}
+          onChange={(e) => setForm({ ...form, deadline: e.target.value })}
+        />
         <AddButton type="submit" text={"Create Project"} />
       </form>
     </Popup>

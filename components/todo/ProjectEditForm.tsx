@@ -2,6 +2,7 @@
 import { IProject } from "@/lib/models/projectModel";
 import { Save } from "lucide-react";
 import { useState } from "react";
+import AddTextInput from "../forms/AddTextInput";
 
 export function ProjectEditForm({
   project,
@@ -31,10 +32,10 @@ export function ProjectEditForm({
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-title mb-1">
           Project Name
         </label>
-        <input
+        <AddTextInput
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -43,22 +44,23 @@ export function ProjectEditForm({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-title mb-1">
           Description
         </label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="bg-secondary text-title p-5 rounded-2xl text-center placeholder:text-center w-full focus:ring-blue-500"
           rows={3}
+          placeholder="Enter project description (optional)"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-title mb-1">
           Deadline
         </label>
-        <input
+        <AddTextInput
           type="date"
           value={deadline}
           onChange={(e) => setDeadline(e.target.value)}
@@ -66,16 +68,16 @@ export function ProjectEditForm({
         />
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 cursor-pointer" >
         <button
           onClick={handleSubmit}
-          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+          className="py-2 px-4 bg-btn-primary text-white text-sm rounded-[10px] font-bold flex items-center justify-center gap-3"
         >
           <Save size={16} /> Save
         </button>
         <button
           onClick={onCancel}
-          className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+          className="px-4 py-2 text-subtitle border rounded-[10px] hover:bg- "
         >
           Cancel
         </button>

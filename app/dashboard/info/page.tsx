@@ -200,6 +200,8 @@ function Info() {
                       src={form.logoUrl}
                       className="w-full h-full object-cover rounded-2xl"
                       alt="Company Logo"
+                      width={200}
+                      height={200}
                     />
                   ) : (
                     <div className="text-subtitle text-center">

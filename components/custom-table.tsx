@@ -57,7 +57,7 @@ export default function CustomTable({
   currentPage: externalCurrentPage,
   onPageChange: externalOnPageChange,
   totalItems: externalTotalItems,
-  loading = false, // NEW: Loading state
+  loading = false, 
 }: TTableProps) {
   const [internalCurrentPage, setInternalCurrentPage] = useState(1);
   const currentPage =
@@ -147,8 +147,6 @@ export default function CustomTable({
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
 
-  // For server-side pagination, we use the data directly
-  // For client-side, we slice the filtered data
   const paginatedData = useMemo(() => {
     if (externalTotalItems !== undefined) {
       // Server-side: data is already paginated from API

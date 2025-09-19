@@ -61,6 +61,7 @@ import {
 import { EnhancedTaskCard } from "@/components/todo/EnhancedTaskCard";
 import ViewModeSwitcher from "@/components/todo/ViewMode";
 import DashboardCard from "@/components/dashboard/DashboardCard";
+import Loader from "@/components/layout/Loader";
 
 /* -------------------------
    Animation Variants
@@ -699,7 +700,6 @@ export default function EnhancedTodoPage() {
   }, [viewMode]);
 
   useEffect(() => {
-
     if (viewMode === "projects" && projects.length > 0 && !selectedProject) {
       setSelectedProject(projects[0]._id);
     }
@@ -1095,37 +1095,7 @@ export default function EnhancedTodoPage() {
      Render
      -------------------------*/
   if (isLoading && projects.length === 0) {
-    return (
-      <motion.div
-        className="min-h-screen bg-background flex items-center justify-center"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-      >
-        <div className="text-center">
-          <motion.div
-            animate={{
-              rotate: 360,
-              transition: {
-                duration: 1,
-                repeat: Infinity,
-                ease: "linear",
-              },
-            }}
-          >
-            <RefreshCw className="mx-auto mb-4 text-btn-secondary" size={32} />
-          </motion.div>
-          <motion.p
-            className="text-title"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-          >
-            Loading Data...
-          </motion.p>
-        </div>
-      </motion.div>
-    );
+    return <Loader />;
   }
 
   return (
@@ -1198,6 +1168,7 @@ export default function EnhancedTodoPage() {
               isOpen={isProjectOpen}
               onClose={() => {
                 setIsProjectOpen(false);
+                setViewMode("projects")
               }}
             />
           </div>
@@ -1381,7 +1352,7 @@ export default function EnhancedTodoPage() {
             >
               {/* Project Header */}
               <motion.div
-                className="bg-primary rounded-xl p-6 shadow-sm"
+                className="bg-primary rounded-2xl p-6 shadow-sm"
                 variants={itemVariants}
               >
                 <div className="flex items-start justify-between">
@@ -1453,7 +1424,7 @@ export default function EnhancedTodoPage() {
 
               {/* Task Board */}
               <motion.div
-                className="bg-primary rounded-xl p-6 shadow-sm"
+                className="bg-primary rounded-2xl p-6 shadow-sm"
                 variants={itemVariants}
               >
                 <div className="flex items-center justify-between mb-6">

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { Project, Task, Subtask } from "@/lib/models/projectModel";
-import connectDB from "../mongoConnect" ;
+import connectDB from "../mongoConnect";
 
 // Project CRUD Operations
 export async function getProjects() {
@@ -28,7 +28,6 @@ export async function createProject(data: any) {
     await connectDB();
     const project = new Project(data);
     await project.save();
-    revalidatePath("/");
     return JSON.parse(JSON.stringify(project));
   } catch (error) {
     console.error("Error creating project:", error);

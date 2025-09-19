@@ -1,7 +1,7 @@
 "use client";
 
 import DashboardCard from "@/components/dashboard/DashboardCard";
-import DashboardLineChart from "@/components/dashboard/DashboardLineChart";
+import DashboardLineChart, { DataType } from "@/components/dashboard/DashboardLineChart";
 import DashboardPieChart from "@/components/dashboard/DashboardPieChart";
 import StatCard from "@/components/dashboard/StatCard";
 import CustomTable from "@/components/custom-table";
@@ -54,7 +54,7 @@ export default function Page() {
           <h2 className="text-3xl font-bold text-title">Stats</h2>
           <div className="lg:grid grid-cols-5 gap-3">
             <div className="col-span-3 my-3">
-              <DashboardLineChart />
+              <DashboardLineChart data={data?.graphData} />
             </div>
             <div className="col-span-2 my-3">
               <DashboardPieChart />

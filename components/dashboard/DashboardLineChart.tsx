@@ -14,27 +14,32 @@ import {
 import Tabs from "../Tabs";
 import { CustomTooltip } from "../CustomTooltip";
 
-const DashboardLineChart = () => {
+export type DataType = {
+  month: string;
+  profit: number;
+  sell: number;
+  buy: number;
+  expense: number;
+}[];
+
+type DashboardLineChartProps = {
+  data: DataType;
+};
+
+const DashboardLineChart = ({ data }: DashboardLineChartProps) => {
   const [activeTab, setActiveTab] = useState("Profit");
 
-  const data = [
-    { month: "Jan", profit: 4000, sell: 3500, buy: 1800 },
-    { month: "Feb", profit: 2000, sell: 2800, buy: 2200 },
-    { month: "Mar", profit: 3000, sell: 0, buy: 2000 },
-    { month: "Apr", profit: 3500, sell: 4100, buy: 2400 },
-    { month: "May", profit: 2000, sell: 6800, buy: 900 },
-    { month: "Jun", profit: 1000, sell: 6800, buy: 200 },
-    { month: "jul", profit: 5000, sell: 6800, buy: 5000 },
-  ];
-
+  console.log(data);
   const getLineColor = () => {
     switch (activeTab) {
       case "Profit":
-        return "#10B981";
+        return "#10B981"; // green
       case "Sell":
-        return "#3B82F6";
+        return "#3B82F6"; // blue
       case "Buy":
-        return "#F59E0B";
+        return "#F59E0B"; // amber
+      case "Expense":
+        return "#EF4444"; // red
       default:
         return "#3B82F6";
     }
@@ -44,7 +49,7 @@ const DashboardLineChart = () => {
     return activeTab.toLowerCase();
   };
 
-  const tabs = ["Profit", "Sell", "Buy"];
+  const tabs = ["Profit", "Sell", "Buy", "Expense"];
 
   return (
     <div className="bg-primary p-6 rounded-2xl shadow-sm border border-secondary ">

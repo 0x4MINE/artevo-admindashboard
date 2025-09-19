@@ -11,18 +11,18 @@ export default async function Layout({
 }) {
   const currentUser = await getCurrentUser();
   return (
-    <div className="flex h-screen overflow-hidden ">
+    <div className="flex h-screen w-screen overflow-hidden">
       <Sidebar currentUser={currentUser} />
-      <div className="flex flex-col flex-1 overflow-auto">
-        <Navbar />
-        {children}
+      <div className="flex flex-col flex-1 min-w-0 min-h-0">
+        <div className="flex-shrink-0">
+          <Navbar />
+        </div>
+        <main className="flex-1 overflow-hidden min-h-0">
+          <div className="h-full overflow-x-hidden ">
+            {children}
+          </div>
+        </main>
       </div>
     </div>
   );
-
-  {
-    /* <SidebarProvider className="">
-  //     <AppSidebar />
-  //   </SidebarProvider>*/
-  }
 }
