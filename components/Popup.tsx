@@ -136,7 +136,7 @@ export default function Popup({ isOpen, onClose, children }: PopupProps) {
               transition: { duration: 0.1 }
             }}
             ref={popupRef}
-            className="bg-primary p-6 rounded-2xl shadow-2xl min-w-[300px] max-w-[90vw] max-h-[90vh] relative overflow-hidden"
+            className="bg-primary p-6 rounded-2xl shadow-2xl min-w-[300px] max-w-[90vw] max-h-[90vh] relative overflow-y-auto"
             style={{
               boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1)"
             }}

@@ -324,7 +324,7 @@ export const deleteSellBon = deleteOne(SellBon);
 import { revalidatePath } from "next/cache";
 import { Product } from "../models/productModel";
 import { Lot } from "../models/lotModel";
-
+import FilterState from "@/types/FilterState";
 
 export interface CreateBuyTransactionData {
   date: string;
@@ -401,7 +401,9 @@ export async function createBuyTransaction(data: CreateBuyTransactionData) {
       success: true,
       buyFactId: newBuyFact.buyFactId,
       _id: newBuyFact._id.toString(),
-      message: `${data.type === 'purchase' ? 'Purchase' : 'Return'} transaction saved successfully`,
+      message: `${
+        data.type === "purchase" ? "Purchase" : "Return"
+      } transaction saved successfully`,
     };
   } catch (error) {
     console.error("❌ Error creating buy transaction:", error);
@@ -412,7 +414,10 @@ export async function createBuyTransaction(data: CreateBuyTransactionData) {
   }
 }
 
-async function handlePurchaseProducts(data: CreateBuyTransactionData, buyFactId: string) {
+async function handlePurchaseProducts(
+  data: CreateBuyTransactionData,
+  buyFactId: string
+) {
   for (const p of data.products) {
     // Check if lot already exists for this product & supplier
     let lot = await Lot.findOne({
@@ -465,7 +470,10 @@ async function handlePurchaseProducts(data: CreateBuyTransactionData, buyFactId:
   }
 }
 
-async function handleReturnProducts(data: CreateBuyTransactionData, buyFactId: string) {
+async function handleReturnProducts(
+  data: CreateBuyTransactionData,
+  buyFactId: string
+) {
   for (const p of data.products) {
     // For returns, we need to reduce stock
     if (p.lot_id) {
@@ -473,9 +481,11 @@ async function handleReturnProducts(data: CreateBuyTransactionData, buyFactId: s
       const lot = await Lot.findById(p.lot_id);
       if (lot) {
         if (lot.quantity < p.quantity) {
-          throw new Error(`Insufficient quantity in lot ${p.lot_id}. Available: ${lot.quantity}, Requested: ${p.quantity}`);
+          throw new Error(
+            `Insufficient quantity in lot ${p.lot_id}. Available: ${lot.quantity}, Requested: ${p.quantity}`
+          );
         }
-        
+
         // Reduce lot quantity
         lot.quantity -= p.quantity;
         await lot.save();
@@ -492,9 +502,9 @@ async function handleReturnProducts(data: CreateBuyTransactionData, buyFactId: s
       const lot = await Lot.findOne({
         prod_id: p.prod_oid,
         supp_id: data.suppId,
-        quantity: { $gte: p.quantity }
+        quantity: { $gte: p.quantity },
       });
-      
+
       if (lot) {
         lot.quantity -= p.quantity;
         await lot.save();
@@ -553,11 +563,11 @@ export async function getBuyFactById(id: string) {
 
     const buyFact = await BuyFact.findById(id)
       .populate({
-        path: 'buyDetails',
-        select: 'name quantity price type tva'
+        path: "buyDetails",
+        select: "name quantity price type tva",
       })
-      .populate('suppId', 'name')
-      .populate('userId', 'name')
+      .populate("suppId", "name")
+      .populate("userId", "name")
       .lean();
 
     if (!buyFact) {
@@ -565,10 +575,11 @@ export async function getBuyFactById(id: string) {
     }
 
     // Calculate total
-    const total = buyFact.buyDetails?.reduce(
-      (sum: number, detail: any) => sum + (detail.price * detail.quantity),
-      0
-    ) || 0;
+    const total =
+      buyFact.buyDetails?.reduce(
+        (sum: number, detail: any) => sum + detail.price * detail.quantity,
+        0
+      ) || 0;
 
     return {
       ...buyFact,
@@ -628,10 +639,11 @@ export async function getPurchaseTransactions(supplierId?: string) {
       buyFactId: t.buyFactId,
       date: t.date,
       supplierName: t.suppId?.name || "Unknown",
-      total: t.buyDetails?.reduce(
-        (sum: number, detail: any) => sum + (detail.price * detail.quantity),
-        0
-      ) || 0,
+      total:
+        t.buyDetails?.reduce(
+          (sum: number, detail: any) => sum + detail.price * detail.quantity,
+          0
+        ) || 0,
     }));
   } catch (error) {
     console.error("Error fetching purchase transactions:", error);
@@ -672,7 +684,7 @@ export const getBuyBons = async () => {
 export async function getBuyReturns() {
   try {
     await connectDB();
-    
+
     const returns = await BuyFact.find({ type: "return" })
       .populate("buyDetails")
       .populate("suppId", "name phone email")
@@ -698,3 +710,499 @@ export async function getBuyReturns() {
     throw new Error("Failed to fetch buy returns");
   }
 }
+
+//Pagination
+export const getPaginatedSellBons = async (
+  page: number = 1,
+  limit: number = 10,
+  searchTerm: string = "",
+  filters: Partial<FilterState> = {}
+) => {
+  try {
+    await connectDB();
+    const skip = (page - 1) * limit;
+    const match: any = {};
+
+    // --- Date range (boundless, include end day) ---
+    if (filters.dateRange?.[0] || filters.dateRange?.[1]) {
+      const dateFilter: any = {};
+      if (filters.dateRange[0])
+        dateFilter.$gte = new Date(filters.dateRange[0]);
+      if (filters.dateRange[1]) {
+        const end = new Date(filters.dateRange[1]);
+        end.setHours(23, 59, 59, 999);
+        dateFilter.$lte = end;
+      }
+      match.date = dateFilter;
+    }
+
+    // NOTE: Do NOT put `amount` into initial match because it's computed later.
+
+    // --- Aggregation pipeline ---
+    const pipeline: any[] = [
+      { $match: match },
+
+      // client join
+      {
+        $lookup: {
+          from: "clients",
+          localField: "clientId",
+          foreignField: "_id",
+          as: "client",
+        },
+      },
+      { $unwind: { path: "$client", preserveNullAndEmptyArrays: true } },
+
+      // details join
+      {
+        $lookup: {
+          from: "sellbdetails",
+          localField: "_id",
+          foreignField: "sellBonId",
+          as: "details",
+        },
+      },
+
+      // compute total amount, client_name, itemCount
+      {
+        $addFields: {
+          amount: {
+            $sum: {
+              $map: {
+                input: "$details",
+                as: "detail",
+                in: { $multiply: ["$$detail.price", "$$detail.quantity"] },
+              },
+            },
+          },
+          client_name: { $ifNull: ["$client.name", "Walk-in Customer"] },
+          itemCount: { $size: "$details" },
+        },
+      },
+    ];
+
+    // --- Search (after amount/client_name exists) ---
+    if (searchTerm) {
+      pipeline.push({
+        $match: {
+          $or: [
+            // numeric sellBonId search, fallback to -1 so it doesn't match strings
+            { sellBonId: isNaN(Number(searchTerm)) ? -1 : Number(searchTerm) },
+            { client_name: { $regex: searchTerm, $options: "i" } },
+          ],
+        },
+      });
+    }
+
+    // --- Apply amount filter AFTER it's calculated ---
+    if (filters.amountRange) {
+      pipeline.push({
+        $match: {
+          amount: {
+            $gte: filters.amountRange[0],
+            $lte: filters.amountRange[1],
+          },
+        },
+      });
+    }
+
+    // --- Sorting & pagination ---
+    pipeline.push({ $sort: { date: -1 } }, { $skip: skip }, { $limit: limit });
+
+    // --- Query + count ---
+    const [sellBons, total] = await Promise.all([
+      SellBon.aggregate(pipeline),
+      SellBon.aggregate([...pipeline.slice(0, -3), { $count: "count" }]),
+    ]);
+
+    const totalCount = total[0]?.count || 0;
+
+    // --- Serialize safely ---
+    const serializedSellBons = sellBons.map((bon: any) => ({
+      _id: bon._id.toString(),
+      sellBonId: bon.sellBonId ?? 0,
+      date: bon.date ? bon.date.toISOString() : null,
+      amount: bon.amount ?? 0,
+      client_name: bon.client_name ?? "Walk-in Customer",
+      itemCount: bon.itemCount ?? 0,
+      userId: bon.userId?.toString() || null,
+      client: bon.client
+        ? {
+            _id: bon.client._id?.toString(),
+            client_id: bon.client.client_id || "",
+            name: bon.client.name || "",
+            email: bon.client.email || "",
+            phone: bon.client.phone || "",
+          }
+        : null,
+      clientId: bon.clientId?.toString() || null,
+      details:
+        bon.details?.map((detail: any) => ({
+          _id: detail._id?.toString(),
+          name: detail.name || "",
+          quantity: detail.quantity || 0,
+          price: detail.price || 0,
+          tva: detail.tva || 0,
+          type: detail.type || "product",
+          total: (detail.quantity || 0) * (detail.price || 0),
+          createdAt: detail.createdAt
+            ? new Date(detail.createdAt).toISOString()
+            : null,
+          updatedAt: detail.updatedAt
+            ? new Date(detail.updatedAt).toISOString()
+            : null,
+        })) || [],
+      createdAt: bon.createdAt ? new Date(bon.createdAt).toISOString() : null,
+      updatedAt: bon.updatedAt ? new Date(bon.updatedAt).toISOString() : null,
+    }));
+
+    return {
+      sellBons: serializedSellBons,
+      total: totalCount,
+    };
+  } catch (error: any) {
+    console.error("❌ Error in getPaginatedSellBons:", error);
+    throw new Error("Failed to fetch paginated sell bons");
+  }
+};
+export const getPaginatedProformas = async (
+  page: number = 1,
+  limit: number = 5,
+  searchTerm: string = "",
+  filters: Partial<FilterState> = {}
+) => {
+  try {
+    await connectDB();
+    const skip = (page - 1) * limit;
+    const match: any = {};
+
+    // --- Date range (boundless, include end day) ---
+    if (filters.dateRange?.[0] || filters.dateRange?.[1]) {
+      const dateFilter: any = {};
+      if (filters.dateRange[0])
+        dateFilter.$gte = new Date(filters.dateRange[0]);
+      if (filters.dateRange[1]) {
+        const end = new Date(filters.dateRange[1]);
+        end.setHours(23, 59, 59, 999);
+        dateFilter.$lte = end;
+      }
+      match.date = dateFilter;
+    }
+
+    // --- Aggregation pipeline ---
+    const pipeline: any[] = [
+      { $match: match },
+
+      // client join
+      {
+        $lookup: {
+          from: "clients",
+          localField: "clientId",
+          foreignField: "_id",
+          as: "client",
+        },
+      },
+      { $unwind: { path: "$client", preserveNullAndEmptyArrays: true } },
+
+      // user join to get creator name
+      {
+        $lookup: {
+          from: "users",
+          localField: "userId",
+          foreignField: "_id",
+          as: "user",
+        },
+      },
+      { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
+
+      // proforma details join
+      {
+        $lookup: {
+          from: "sellpdetails",
+          localField: "_id",
+          foreignField: "proformaId",
+          as: "details",
+        },
+      },
+
+      // compute total amount, client_name, itemCount, by
+      {
+        $addFields: {
+          amount: {
+            $sum: {
+              $map: {
+                input: "$details",
+                as: "detail",
+                in: { $multiply: ["$$detail.price", "$$detail.quantity"] },
+              },
+            },
+          },
+          client_name: { $ifNull: ["$client.name", "Walk-in Customer"] },
+          itemCount: { $size: "$details" },
+          by: { $ifNull: ["$user.name", "System"] }, // Derive from user lookup
+        },
+      },
+    ];
+
+    // --- Search (after amount/client_name/by exists) ---
+    if (searchTerm) {
+      pipeline.push({
+        $match: {
+          $or: [
+            // Search by numeric proformaId
+            { proformaId: isNaN(Number(searchTerm)) ? -1 : Number(searchTerm) },
+            { client_name: { $regex: searchTerm, $options: "i" } },
+            { by: { $regex: searchTerm, $options: "i" } },
+          ],
+        },
+      });
+    }
+
+    // --- Apply amount filter AFTER it's calculated ---
+    if (filters.amountRange) {
+      pipeline.push({
+        $match: {
+          amount: {
+            $gte: filters.amountRange[0],
+            $lte: filters.amountRange[1],
+          },
+        },
+      });
+    }
+
+    // --- Sorting & pagination ---
+    pipeline.push({ $sort: { date: -1 } }, { $skip: skip }, { $limit: limit });
+
+    // --- Query + count ---
+    const [proformas, total] = await Promise.all([
+      Proforma.aggregate(pipeline),
+      Proforma.aggregate([...pipeline.slice(0, -3), { $count: "count" }]),
+    ]);
+
+    const totalCount = total[0]?.count || 0;
+
+    // --- Serialize safely ---
+    const serializedProformas = proformas.map((proforma: any) => ({
+      _id: proforma._id?.toString() || "",
+      proformaId: proforma.proformaId || 0, // Use numeric proformaId
+      sell_id: proforma.proformaId || 0, // For compatibility with existing component
+      date: proforma.date ? proforma.date.toISOString() : null,
+      amount: proforma.amount ?? 0,
+      client_name: proforma.client_name || "Walk-in Customer",
+      itemCount: proforma.itemCount ?? 0,
+      by: proforma.by || "System", // Now derived from user lookup
+      userId: proforma.userId?.toString() || null,
+
+      // User info (from lookup)
+      user: proforma.user
+        ? {
+            _id: proforma.user._id?.toString() || "",
+            name: proforma.user.name || "",
+            email: proforma.user.email || "",
+          }
+        : null,
+
+      client: proforma.client
+        ? {
+            _id: proforma.client._id?.toString() || "",
+            client_id: proforma.client.client_id || "",
+            name: proforma.client.name || "",
+            email: proforma.client.email || "",
+            phone: proforma.client.phone || "",
+          }
+        : null,
+      clientId: proforma.clientId?.toString() || null,
+
+      details:
+        proforma.details?.map((detail: any) => ({
+          _id: detail._id?.toString() || "",
+          name: detail.name || "",
+          quantity: detail.quantity || 0,
+          price: detail.price || 0,
+          tva: detail.tva || 0,
+          type: detail.type || "product",
+          total: (detail.quantity || 0) * (detail.price || 0),
+          createdAt: detail.createdAt
+            ? new Date(detail.createdAt).toISOString()
+            : null,
+          updatedAt: detail.updatedAt
+            ? new Date(detail.updatedAt).toISOString()
+            : null,
+        })) || [],
+
+      createdAt: proforma.createdAt
+        ? new Date(proforma.createdAt).toISOString()
+        : null,
+      updatedAt: proforma.updatedAt
+        ? new Date(proforma.updatedAt).toISOString()
+        : null,
+    }));
+
+    return {
+      proformas: serializedProformas,
+      total: totalCount,
+    };
+  } catch (error: any) {
+    console.error("❌ Error in getPaginatedProformas:", error);
+    throw new Error("Failed to fetch paginated proformas");
+  }
+};
+export const getPaginatedBuyFacts = async (
+  page: number = 1,
+  limit: number = 10,
+  searchTerm: string = "",
+  filters: Partial<FilterState> = {}
+) => {
+  try {
+    await connectDB();
+    const skip = (page - 1) * limit;
+    const match: any = {};
+
+    // --- Date range (boundless, include end day) ---
+    if (filters.dateRange?.[0] || filters.dateRange?.[1]) {
+      const dateFilter: any = {};
+      if (filters.dateRange[0])
+        dateFilter.$gte = new Date(filters.dateRange[0]);
+      if (filters.dateRange[1]) {
+        const end = new Date(filters.dateRange[1]);
+        end.setHours(23, 59, 59, 999);
+        dateFilter.$lte = end;
+      }
+      match.date = dateFilter;
+    }
+
+    // NOTE: Do NOT put `amount` into initial match because it's computed later.
+
+    // --- Aggregation pipeline ---
+    const pipeline: any[] = [
+      { $match: match },
+
+      // supplier join
+      {
+        $lookup: {
+          from: "suppliers",
+          localField: "suppId",
+          foreignField: "_id",
+          as: "supplier",
+        },
+      },
+      { $unwind: { path: "$supplier", preserveNullAndEmptyArrays: true } },
+
+      // buy details join
+      {
+        $lookup: {
+          from: "buydetails",
+          localField: "_id",
+          foreignField: "buyFactId",
+          as: "details",
+        },
+      },
+
+      // compute total amount, supplier_name, itemCount
+      {
+        $addFields: {
+          amount: {
+            $sum: {
+              $map: {
+                input: "$details",
+                as: "detail",
+                in: { $multiply: ["$$detail.price", "$$detail.quantity"] },
+              },
+            },
+          },
+          supplier_name: { $ifNull: ["$supplier.name", "Unknown Supplier"] },
+          itemCount: { $size: "$details" },
+        },
+      },
+    ];
+
+    // --- Search (after amount/supplier_name exists) ---
+    if (searchTerm) {
+      pipeline.push({
+        $match: {
+          $or: [
+            // numeric buyFactId search, fallback to -1 so it doesn't match strings
+            { buyFactId: isNaN(Number(searchTerm)) ? -1 : Number(searchTerm) },
+            { supplier_name: { $regex: searchTerm, $options: "i" } },
+            { reglement: { $regex: searchTerm, $options: "i" } },
+            { type: { $regex: searchTerm, $options: "i" } },
+          ],
+        },
+      });
+    }
+
+    // --- Apply amount filter AFTER it's calculated ---
+    if (filters.amountRange) {
+      pipeline.push({
+        $match: {
+          amount: {
+            $gte: filters.amountRange[0],
+            $lte: filters.amountRange[1],
+          },
+        },
+      });
+    }
+
+    // --- Sorting & pagination ---
+    pipeline.push({ $sort: { date: -1 } }, { $skip: skip }, { $limit: limit });
+
+    // --- Query + count ---
+    const [buyFacts, total] = await Promise.all([
+      BuyFact.aggregate(pipeline),
+      BuyFact.aggregate([...pipeline.slice(0, -3), { $count: "count" }]),
+    ]);
+
+    const totalCount = total[0]?.count || 0;
+
+    // --- Serialize safely ---
+    const serializedBuyFacts = buyFacts.map((fact: any) => ({
+      _id: fact._id.toString(),
+      buyFactId: fact.buyFactId ?? 0,
+      date: fact.date ? fact.date.toISOString() : null,
+      amount: fact.amount ?? 0,
+      supplier_name: fact.supplier_name ?? "Unknown Supplier",
+      reglement: fact.reglement ?? "",
+      type: fact.type ?? "purchase",
+      itemCount: fact.itemCount ?? 0,
+      originalCode: fact.originalCode ?? "",
+      userId: fact.userId?.toString() || null,
+      supplier: fact.supplier
+        ? {
+            _id: fact.supplier._id?.toString(),
+            supp_id: fact.supplier.supp_id || "",
+            name: fact.supplier.name || "",
+            email: fact.supplier.email || "",
+            phone: fact.supplier.phone || "",
+            address: fact.supplier.address || "",
+          }
+        : null,
+      suppId: fact.suppId?.toString() || null,
+      details:
+        fact.details?.map((detail: any) => ({
+          _id: detail._id?.toString(),
+          name: detail.name || "",
+          quantity: detail.quantity || 0,
+          price: detail.price || 0,
+          tva: detail.tva || 0,
+          type: detail.type || "product",
+          total: (detail.quantity || 0) * (detail.price || 0),
+          createdAt: detail.createdAt
+            ? new Date(detail.createdAt).toISOString()
+            : null,
+          updatedAt: detail.updatedAt
+            ? new Date(detail.updatedAt).toISOString()
+            : null,
+        })) || [],
+      createdAt: fact.createdAt ? new Date(fact.createdAt).toISOString() : null,
+      updatedAt: fact.updatedAt ? new Date(fact.updatedAt).toISOString() : null,
+    }));
+
+    return {
+      buyFacts: serializedBuyFacts,
+      total: totalCount,
+    };
+  } catch (error: any) {
+    console.error("❌ Error in getPaginatedBuyFacts:", error);
+    throw new Error("Failed to fetch paginated buy facts");
+  }
+};

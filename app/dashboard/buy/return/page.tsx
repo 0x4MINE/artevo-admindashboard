@@ -53,8 +53,12 @@ export default function ReturnTransactions() {
   return (
     <div>
       <Toaster />
-      <ContentNavbar setSearch={setSearch} setPopUp={setInvoicesPopUp} />
-      
+      <ContentNavbar
+        filters={["active"]}
+        setSearch={setSearch}
+        setPopUp={setInvoicesPopUp}
+      />
+
       <div className="p-8">
         <CustomTable
           data={data}

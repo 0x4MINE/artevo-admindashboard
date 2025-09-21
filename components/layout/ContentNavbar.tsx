@@ -1,18 +1,14 @@
 import React from "react";
 import DropdownFilter from "@/components/DropdownFilter";
-
-interface FilterState {
-  dateRange: [string, string];
-  quantityRange: [number, number];
-  isActive: boolean | null;
-}
+import { FilterType } from "@/types/FilterState";
 
 interface Props {
   setPopUp: (state: boolean) => void;
   setSearch: (state: string) => void;
+  filters: FilterType[];
 }
 
-function ContentNavbar({ setPopUp, setSearch }: Props) {
+function ContentNavbar({ setPopUp, setSearch, filters }: Props) {
   return (
     <div className="flex flex-col-reverse sm:flex-row bg-background justify-between items-center p-4 gap-4">
       <div className="hidden md:block" />
@@ -29,7 +25,7 @@ function ContentNavbar({ setPopUp, setSearch }: Props) {
 
       {/* Filter Dropdown and Add Button */}
       <div className="flex gap-3 items-center">
-        <DropdownFilter />
+        <DropdownFilter filters={filters} />
 
         <button
           onClick={() => setPopUp(true)}

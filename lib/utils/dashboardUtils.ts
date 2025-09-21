@@ -18,7 +18,7 @@ export async function getStatsForModel(
 
   const periods: Record<string, Date> = {
     today: startOfDay(now),
-    week: startOfWeek(now, { weekStartsOn: 0 }), // Sunday start
+    week: startOfWeek(now, { weekStartsOn: 6 }),
     month: startOfMonth(now),
     year: startOfYear(now),
   };

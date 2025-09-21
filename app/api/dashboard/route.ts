@@ -8,6 +8,7 @@ import { Supplier } from "@/lib/models/supplierModel";
 import connectDB from "@/lib/mongoConnect";
 import { getStatsForModel } from "@/lib/utils/dashboardUtils";
 import { NextResponse } from "next/server";
+import { startOfDay, startOfWeek, startOfMonth, startOfYear } from "date-fns";
 
 async function getDashboardCards() {
   await connectDB();
@@ -70,13 +71,11 @@ export async function GET(req: Request) {
   }
 }
 
-import { startOfDay, startOfWeek, startOfMonth, startOfYear } from "date-fns";
-
 async function getSellStats() {
   const now = new Date();
   const periods = {
     today: startOfDay(now),
-    week: startOfWeek(now, { weekStartsOn: 0 }),
+    week: startOfWeek(now, { weekStartsOn: 6 }),
     month: startOfMonth(now),
     year: startOfYear(now),
   };
@@ -120,7 +119,7 @@ async function getBuyStats() {
   const now = new Date();
   const periods = {
     today: startOfDay(now),
-    week: startOfWeek(now, { weekStartsOn: 0 }),
+    week: startOfWeek(now, { weekStartsOn: 6 }),
     month: startOfMonth(now),
     year: startOfYear(now),
   };

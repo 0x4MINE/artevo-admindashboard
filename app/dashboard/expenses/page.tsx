@@ -7,118 +7,155 @@ import ContentNavbar from "@/components/layout/ContentNavbar";
 import CustomTable from "@/components/custom-table";
 import Popup from "@/components/Popup";
 import ExpensesPopup from "@/components/popups/ExpensesPopup";
+import Loader from "@/components/layout/Loader";
+import ActiveFilterBar from "@/components/ActiveFilterBar";
 import type { Column } from "@/types/Column";
 import { useUserStore } from "@/lib/store/useUser";
 import { useFilterStore } from "@/lib/store/useFilter";
-import { deleteExpense, getExpense } from "@/lib/actions/expenseAction";
+import {
+  deleteExpense,
+  getExpensesPaginated,
+} from "@/lib/actions/expenseAction";
 import type { Expense } from "@/types/expense";
-import ActiveFilterBar from "@/components/ActiveFilterBar";
 
 const columns: Column[] = [
-  { key: "id", label: "ID", type: "text" },
+  { key: "expense_id", label: "ID", type: "text" },
   { key: "name", label: "Name", type: "text" },
-  { key: "price", label: "Price", type: "currency" },
+  { key: "price", label: "Amount", type: "currency" },
   { key: "createdAt", label: "Date", type: "date" },
   { key: "by", label: "By", type: "text" },
+  { key: "isActive", label: "Status", type: "status" },
 ];
 
 function Expenses() {
-  const [popUp, setPopUp] = useState(false);
-  const [search, setSearch] = useState("");
-  const [data, setData] = useState<Expense[]>([]);
-  const [editUser, setEdit] = useState<Expense | null>(null);
-  const { user } = useUserStore();
   const { filters } = useFilterStore();
+  const { user } = useUserStore();
+  const [data, setData] = useState<Expense[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [popUp, setPopUp] = useState(false);
+  const [editExpense, setEditExpense] = useState<Expense | null>(null);
+  const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+
+  const itemsPerPage = 5;
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const expenses = await getExpense();
-        const formatted = expenses.map((e) => ({
+        setLoading(true);
+        const { expenses, total } = await getExpensesPaginated(
+          currentPage,
+          itemsPerPage,
+          search,
+          filters
+        );
+
+        const formatted = expenses.map((e: any) => ({
           ...e,
           by: e.user?.name || "Unknown",
         }));
+
         setData(formatted);
+        setTotalItems(total);
       } catch (error) {
         toast.error("Failed to fetch expenses");
-        console.error(error);
+        console.error("Error fetching expenses:", error);
+      } finally {
+        setLoading(false);
       }
     }
 
     fetchData();
-  }, [filters]);
+  }, [filters, currentPage, search]);
 
-  const handleDelete = async (item: Expense) => {
-    if (!item._id) return;
+  const handleSearchChange = (newSearch: string) => {
+    setSearch(newSearch);
+    setCurrentPage(1);
+  };
+
+  const handleDelete = async (expense: Expense) => {
+    if (!expense._id) return;
 
     toast.promise(
       async () => {
-        await deleteExpense(item._id!);
-        setData((prev) => prev.filter((el) => el._id !== item._id));
-        return `Expense ${item.id} has been deleted`;
+        const response = await deleteExpense(expense._id!);
+        if (!response?.success) {
+          throw new Error(response?.error || "Failed to delete expense");
+        }
+        setData((prev) => prev.filter((item) => item._id !== expense._id));
+        setTotalItems((prev) => prev - 1);
+        return `Expense ${expense.name} deleted successfully`;
       },
       {
         loading: "Deleting expense...",
-        success: (msg) => msg,
-        error: (error: Error) => error.message || "Failed to delete expense",
+        success: (message) => message,
+        error: (error) => error.message || "Delete failed",
       }
     );
   };
 
-  const handleEdit = (item: Expense) => {
-    setEdit(item);
+  const handleEdit = (expense: Expense) => {
+    setEditExpense(expense);
     setPopUp(true);
   };
 
   const resetPopupState = () => {
     setPopUp(false);
-    setEdit(null);
+    setEditExpense(null);
   };
 
   return (
     <div className="bg-background min-h-screen">
       <Toaster richColors />
       <ContentNavbar
-        setSearch={setSearch}
+        filters={["active", "amount", "date"]}
+        setSearch={handleSearchChange}
         setPopUp={() => {
-          setEdit(null);
+          setEditExpense(null);
           setPopUp(true);
         }}
       />
 
       <div className="p-8">
-        {" "}
         <ActiveFilterBar filteredData={data} />
-        <CustomTable
-          
-          
-          data={data}
-          showActions={true}
-          columns={columns}
-          searchTerm={search}
-          actions={[
-            {
-              label: "Edit",
-              icon: <Pencil className="h-4 w-4" />,
-              onClick: handleEdit,
-            },
-            {
-              label: "Delete",
-              icon: <Trash2 className="h-4 w-4" />,
-              onClick: handleDelete,
-              variant: "destructive",
-            },
-          ]}
-        />
+
+        {loading ? (
+          <Loader />
+        ) : (
+          <CustomTable
+            showPagination
+            itemsPerPage={itemsPerPage}
+            columns={columns}
+            data={data}
+            searchTerm={search}
+            showActions={true}
+            actions={[
+              {
+                label: "Edit",
+                icon: <Pencil className="h-4 w-4" />,
+                onClick: handleEdit,
+              },
+              {
+                label: "Delete",
+                icon: <Trash2 className="h-4 w-4" />,
+                onClick: handleDelete,
+                variant: "destructive",
+              },
+            ]}
+            currentPage={currentPage}
+            onPageChange={setCurrentPage}
+            totalItems={totalItems}
+          />
+        )}
       </div>
 
       <Popup isOpen={popUp} onClose={resetPopupState}>
         <ExpensesPopup
-          editUser={editUser}
-          setEdit={setEdit}
+          editUser={editExpense}
+          setEdit={setEditExpense}
           setPopUp={setPopUp}
           setData={setData}
-          
         />
       </Popup>
     </div>

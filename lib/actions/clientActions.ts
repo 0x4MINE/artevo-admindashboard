@@ -13,9 +13,9 @@ import connectDB from "../mongoConnect";
 import { AwardIcon } from "lucide-react";
 import { ClientPaym } from "../models/clientPayModel";
 import { SellBon } from "../models/sellBonModel";
+import FilterState from "@/types/FilterState";
 
 export const createClient = createOne(Client);
-
 
 export const getClients = async () => {
   try {
@@ -41,7 +41,9 @@ export const getClients = async () => {
       {
         $group: {
           _id: "$clientId",
-          totalSales: { $sum: { $multiply: ["$details.price", "$details.quantity"] } },
+          totalSales: {
+            $sum: { $multiply: ["$details.price", "$details.quantity"] },
+          },
         },
       },
     ]);
@@ -200,7 +202,6 @@ export const updateClient = async (
 };
 export const deleteClient = deleteOne(Client);
 
-
 export const getClientDebt = async (clientId: string) => {
   try {
     await connectDB();
@@ -243,10 +244,192 @@ export const getClientDebt = async (clientId: string) => {
     return {
       totalSales,
       totalPaid,
-      debt: totalSales - totalPaid, 
+      debt: totalSales - totalPaid,
     };
   } catch (error) {
     console.error("❌ Error calculating client debt:", error);
     throw new Error("Failed to calculate client debt");
+  }
+};
+
+export const getPaginatedClients = async (
+  page: number = 1,
+  limit: number = 10,
+  searchTerm: string = "",
+  filters: Partial<FilterState> = {}
+) => {
+  try {
+    await connectDB();
+
+    const skip = (page - 1) * limit;
+    const match: any = {};
+
+    // --- Status ---
+    if (filters.isActive !== null && filters.isActive !== undefined) {
+      match.isActive = filters.isActive;
+    }
+
+    // --- Base aggregation pipeline for clients ---
+    let pipeline: any[] = [
+      { $match: match },
+    ];
+
+    // --- Search term ---
+    if (searchTerm) {
+      pipeline.push({
+        $match: {
+          $or: [
+            { client_id: { $regex: searchTerm, $options: "i" } },
+            { name: { $regex: searchTerm, $options: "i" } },
+            { email: { $regex: searchTerm, $options: "i" } },
+            { phone: { $regex: searchTerm, $options: "i" } },
+          ],
+        },
+      });
+    }
+
+    // --- Sorting & pagination ---
+    pipeline.push(
+      { $sort: { createdAt: -1 } },
+      { $skip: skip },
+      { $limit: limit }
+    );
+
+    // --- Get paginated clients ---
+    const [clients, totalResult] = await Promise.all([
+      Client.aggregate(pipeline),
+      Client.aggregate([...pipeline.slice(0, -3), { $count: "count" }]),
+    ]);
+
+    const totalCount = totalResult[0]?.count || 0;
+
+    if (!clients || clients.length === 0) {
+      return { clients: [], total: totalCount };
+    }
+
+    // --- Prepare for aggregations ---
+    const clientIds = clients.map(c => c._id);
+
+    // --- Sales totals (from SellBon + SellBDetails) ---
+    const salesAgg = await SellBon.aggregate([
+      { $match: { clientId: { $in: clientIds } } },
+      {
+        $lookup: {
+          from: "sellbdetails",
+          localField: "_id",
+          foreignField: "sellBonId",
+          as: "details",
+        },
+      },
+      { $unwind: "$details" },
+      {
+        $group: {
+          _id: "$clientId",
+          totalSales: {
+            $sum: { $multiply: ["$details.price", "$details.quantity"] },
+          },
+        },
+      },
+    ]);
+
+    // --- Payments totals (all-time) ---
+    const paymentsAgg = await ClientPaym.aggregate([
+      { $match: { client_id: { $in: clientIds } } },
+      {
+        $group: {
+          _id: "$client_id",
+          totalPaid: { $sum: "$amount" },
+        },
+      },
+    ]);
+
+    // --- Payments totals (this month only) ---
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    const monthlyPaymentsAgg = await ClientPaym.aggregate([
+      {
+        $match: {
+          client_id: { $in: clientIds },
+          date: { $gte: startOfMonth, $lte: endOfMonth },
+        },
+      },
+      {
+        $group: {
+          _id: "$client_id",
+          total: { $sum: "$amount" },
+        },
+      },
+    ]);
+
+    // --- Build maps ---
+    const salesMap = salesAgg.reduce((acc, s) => {
+      acc[s._id.toString()] = s.totalSales;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const payMap = paymentsAgg.reduce((acc, p) => {
+      acc[p._id.toString()] = p.totalPaid;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const monthlyPayMap = monthlyPaymentsAgg.reduce((acc, p) => {
+      acc[p._id.toString()] = p.total;
+      return acc;
+    }, {} as Record<string, number>);
+
+    // --- Attach calculated data to clients ---
+    let enrichedClients = clients.map((client) => {
+      const clientId = client._id.toString();
+      const totalSales = salesMap[clientId] || 0;
+      const totalPaid = payMap[clientId] || 0;
+      const spentThisMonth = monthlyPayMap[clientId] || 0;
+      const debt = totalSales - totalPaid;
+
+      return {
+        _id: clientId,
+        client_id: client.client_id || "",
+        name: client.name || "",
+        email: client.email || "",
+        phone: client.phone || "",
+        address: client.address || "",
+        company: client.company || "",
+        notes: client.notes || "",
+        isActive: client.isActive ?? null,
+        totalSales,
+        totalPaid,
+        debt,
+        spentThisMonth,
+        social: client.social?.map((s: any) => ({
+          ...s,
+          _id: s._id?.toString(),
+        })) || [],
+        createdAt: client.createdAt ? client.createdAt.toISOString() : null,
+        updatedAt: client.updatedAt ? client.updatedAt.toISOString() : null,
+      };
+    });
+
+    // --- Apply filters after calculation ---
+    if (filters.debtRange) {
+      enrichedClients = enrichedClients.filter(client => 
+        client.debt >= filters.debtRange![0] && client.debt <= filters.debtRange![1]
+      );
+    }
+
+    if (filters.spentAmountRange) {
+      enrichedClients = enrichedClients.filter(client => 
+        client.spentThisMonth >= filters.spentAmountRange![0] && 
+        client.spentThisMonth <= filters.spentAmountRange![1]
+      );
+    }
+
+    return {
+      clients: enrichedClients,
+      total: totalCount,
+    };
+  } catch (error: any) {
+    console.error("❌ Error in getPaginatedClients:", error);
+    throw new Error("Failed to fetch paginated clients");
   }
 };

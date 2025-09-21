@@ -94,3 +94,160 @@ export async function updateClientPaym(id: string, data: any) {
   }
 }
 export const deleteClientPaym = deleteOne(ClientPaym);
+
+export const getClientPaymentsPaginated = async (
+  page: number = 1,
+  limit: number = 10,
+  searchTerm: string = "",
+  filters: any = {}
+) => {
+  try {
+    await connectDB();
+    const skip = (page - 1) * limit;
+    const match: any = {};
+
+    // --- Date range ---
+    if (filters.dateRange?.[0] || filters.dateRange?.[1]) {
+      const dateFilter: any = {};
+      if (filters.dateRange[0])
+        dateFilter.$gte = new Date(filters.dateRange[0]);
+      if (filters.dateRange[1]) {
+        const end = new Date(filters.dateRange[1]);
+        end.setHours(23, 59, 59, 999);
+        dateFilter.$lte = end;
+      }
+      match.$or = [{ date: dateFilter }, { createdAt: dateFilter }];
+    }
+
+    // --- Aggregation pipeline ---
+    const pipeline: any[] = [
+      { $match: match },
+
+      // Convert refs to ObjectId
+      {
+        $addFields: {
+          clientId: {
+            $cond: [
+              { $ifNull: ["$clientId", false] },
+              { $toObjectId: "$clientId" },
+              null,
+            ],
+          },
+          by: {
+            $cond: [{ $ifNull: ["$by", false] }, { $toObjectId: "$by" }, null],
+          },
+        },
+      },
+
+      // Join client
+      {
+        $lookup: {
+          from: "clients",
+          localField: "client_id",
+          foreignField: "_id",
+          as: "client",
+        },
+      },
+      { $unwind: { path: "$client", preserveNullAndEmptyArrays: true } },
+
+      // Join user ("by")
+      {
+        $lookup: {
+          from: "users",
+          localField: "user_id",
+          foreignField: "_id",
+          as: "user",
+        },
+      },
+      { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
+
+      // Derived fields
+      {
+        $addFields: {
+          client_name: { $ifNull: ["$client.name", "Walk-in Customer"] },
+          by: { $ifNull: ["$user.name", "System"] },
+        },
+      },
+    ];
+
+    // --- Search ---
+    if (searchTerm) {
+      pipeline.push({
+        $match: {
+          $or: [
+            { clientPay_id: { $regex: searchTerm, $options: "i" } },
+            { client_name: { $regex: searchTerm, $options: "i" } },
+            { by: { $regex: searchTerm, $options: "i" } },
+          ],
+        },
+      });
+    }
+
+    // --- Amount filter ---
+    if (filters.amountRange) {
+      pipeline.push({
+        $match: {
+          amount: {
+            $gte: filters.amountRange[0],
+            $lte: filters.amountRange[1],
+          },
+        },
+      });
+    }
+
+    // --- Sorting & pagination ---
+    pipeline.push(
+      { $sort: { date: -1, createdAt: -1 } },
+      { $skip: skip },
+      { $limit: limit }
+    );
+
+    // --- Query + count ---
+    const [payments, total] = await Promise.all([
+      ClientPaym.aggregate(pipeline),
+      ClientPaym.aggregate([...pipeline.slice(0, -3), { $count: "count" }]),
+    ]);
+
+    const totalCount = total[0]?.count || 0;
+
+    // --- Serialize ---
+    const serializedPayments = payments.map((p: any) => ({
+      _id: p._id?.toString() || "",
+      clientPay_id: p.clientPay_id || "",
+      date: p.date ? p.date.toISOString() : null,
+      amount: p.amount ?? 0,
+
+      clientId: p.clientId?.toString() || null,
+      client_name: p.client_name,
+
+      by: p.by,
+      userId: p.user?._id?.toString() || null,
+
+      user: p.user
+        ? {
+            _id: p.user._id?.toString() || "",
+            name: p.user.name || "",
+            email: p.user.email || "",
+          }
+        : null,
+
+      client: p.client
+        ? {
+            _id: p.client._id?.toString() || "",
+            client_id: p.client.client_id || "",
+            name: p.client.name || "",
+            email: p.client.email || "",
+            phone: p.client.phone || "",
+          }
+        : null,
+
+      createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : null,
+      updatedAt: p.updatedAt ? new Date(p.updatedAt).toISOString() : null,
+    }));
+
+    return { payments: serializedPayments, total: totalCount };
+  } catch (error: any) {
+    console.error("❌ Error in getClientPaymentsPaginated:", error);
+    throw new Error("Failed to fetch paginated client payments");
+  }
+};

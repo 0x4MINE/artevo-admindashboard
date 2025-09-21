@@ -11,6 +11,7 @@ import {
   deleteOne,
 } from "../factories/crudFactory";
 import connectDB from "../mongoConnect";
+import FilterState from "@/types/FilterState";
 
 export const createLot = async (data: Partial<ILot>) => {
   await connectDB();
@@ -215,11 +216,7 @@ export const getLotsPaginated = async (
   page: number = 1,
   limit: number = 5,
   searchTerm: string = "",
-  filters: Partial<{
-    dateRange: [string, string];
-    quantityRange: [number, number];
-    isActive: boolean | null;
-  }> = {}
+  filters: Partial<FilterState> = {}
 ) => {
   await connectDB();
 
@@ -227,14 +224,24 @@ export const getLotsPaginated = async (
 
   const match: any = {};
 
-  // --- Normal filters ---
-  if (filters.dateRange?.[0] && filters.dateRange?.[1]) {
-    match.date = {
-      $gte: new Date(filters.dateRange[0]),
-      $lte: new Date(filters.dateRange[1]),
-    };
+  // --- Date range ---
+  if (filters.dateRange?.[0] || filters.dateRange?.[1]) {
+    match.createdAt = {};
+    if (filters.dateRange[0]) {
+      // start of day
+      const startDate = new Date(filters.dateRange[0]);
+      startDate.setHours(0, 0, 0, 0);
+      match.createdAt.$gte = startDate;
+    }
+    if (filters.dateRange[1]) {
+      // end of day
+      const endDate = new Date(filters.dateRange[1]);
+      endDate.setHours(23, 59, 59, 999);
+      match.createdAt.$lte = endDate;
+    }
   }
 
+  // --- Quantity range ---
   if (filters.quantityRange) {
     match.quantity = {
       $gte: filters.quantityRange[0],
@@ -242,11 +249,28 @@ export const getLotsPaginated = async (
     };
   }
 
+  // --- Buy amount range ---
+  if (filters.buyAmountRange) {
+    match.buyPrice = {
+      $gte: filters.buyAmountRange[0],
+      $lte: filters.buyAmountRange[1],
+    };
+  }
+
+  // --- Sell amount range ---
+  if (filters.sellAmountRange) {
+    match.sellPrice = {
+      $gte: filters.sellAmountRange[0],
+      $lte: filters.sellAmountRange[1],
+    };
+  }
+
+  // --- Status ---
   if (filters.isActive !== null && filters.isActive !== undefined) {
     match.isActive = filters.isActive;
   }
 
-  // --- Aggregation ---
+  // --- Aggregation pipeline ---
   const pipeline: any[] = [
     { $match: match },
 
@@ -273,7 +297,7 @@ export const getLotsPaginated = async (
     { $unwind: { path: "$product", preserveNullAndEmptyArrays: true } },
   ];
 
-  // --- Search term across lot_id, supplier.name, product.name ---
+  // --- Search term ---
   if (searchTerm) {
     pipeline.push({
       $match: {
@@ -286,12 +310,8 @@ export const getLotsPaginated = async (
     });
   }
 
-  // --- Sorting and pagination ---
-  pipeline.push(
-    { $sort: { date: -1 } },
-    { $skip: skip },
-    { $limit: limit }
-  );
+  // --- Sorting & pagination ---
+  pipeline.push({ $sort: { date: -1 } }, { $skip: skip }, { $limit: limit });
 
   // --- Count for pagination ---
   const [lots, total] = await Promise.all([
@@ -301,19 +321,63 @@ export const getLotsPaginated = async (
 
   const totalCount = total[0]?.count || 0;
 
+  // --- Serialize safely ---
+  const serializedLots = lots.map((lot: any) => ({
+    _id: lot._id.toString(),
+    lot_id: lot.lot_id,
+    date: lot.date ? lot.date.toISOString() : null,
+    buyPrice: lot.buyPrice,
+    sellPrice: lot.sellPrice,
+    quantity: lot.quantity,
+    isActive: lot.isActive,
+
+    // supplier
+    supplier: lot.supplier
+      ? {
+          _id: lot.supplier._id?.toString(),
+          supp_id: lot.supplier.supp_id || "",
+          name: lot.supplier.name || "",
+          phone: lot.supplier.phone || "",
+          email: lot.supplier.email || "",
+          description: lot.supplier.description || "",
+          type: lot.supplier.type || "",
+          isActive: lot.supplier.isActive ?? null,
+          RC: lot.supplier.RC || "",
+          NIF: lot.supplier.NIF || "",
+          NIS: lot.supplier.NIS || "",
+          ART: lot.supplier.ART || "",
+          address: lot.supplier.address || "",
+          createdAt: lot.supplier.createdAt
+            ? new Date(lot.supplier.createdAt).toISOString()
+            : null,
+          updatedAt: lot.supplier.updatedAt
+            ? new Date(lot.supplier.updatedAt).toISOString()
+            : null,
+        }
+      : null,
+
+    // product
+    product: lot.product
+      ? {
+          _id: lot.product._id?.toString(),
+          prod_id: lot.product.prod_id || "",
+          barcode_id: lot.product.barcode_id || "",
+          name: lot.product.name || "",
+          isActive: lot.product.isActive ?? null,
+          cat_id: lot.product.cat_id?.toString() || null,
+          tva: lot.product.tva ?? null,
+        }
+      : null,
+
+    supp_id: lot.supplier?._id?.toString() || null,
+    supp_name: lot.supplier?.name || "",
+
+    createdAt: lot.createdAt ? lot.createdAt.toISOString() : null,
+    updatedAt: lot.updatedAt ? lot.updatedAt.toISOString() : null,
+  }));
+
   return {
-    lots: lots.map((lot: any) => ({
-      ...lot,
-      _id: lot._id.toString(),
-      supp_id: lot.supplier?._id?.toString() || null,
-      supp_name: lot.supplier?.name || "",
-      prod_id: lot.product
-        ? { ...lot.product, _id: lot.product._id.toString() }
-        : null,
-      date: lot.date ? lot.date.toISOString() : null,
-      createdAt: lot.createdAt?.toISOString() || null,
-      updatedAt: lot.updatedAt?.toISOString() || null,
-    })),
+    lots: serializedLots,
     total: totalCount,
   };
 };

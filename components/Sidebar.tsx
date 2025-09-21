@@ -2,18 +2,9 @@
 
 import { use, useActionState, useEffect, useState } from "react";
 import {
-  LayoutDashboard,
-  Package,
-  ShoppingCart,
-  Wallet,
-  Settings,
-  LogOut,
-  Sun,
+
   ChevronDown,
-  Moon,
 } from "lucide-react";
-import { Switch } from "./ui/switch";
-import ThemeToggle from "./ThemeToggle";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSidebarStore } from "@/lib/store/useSidebar";
 import Link from "next/link";
@@ -23,6 +14,7 @@ import clsx from "clsx";
 import { logout } from "@/lib/actions/authActions";
 import { useUserStore } from "@/lib/store/useUser";
 import { useTheme } from "next-themes";
+import ThemeToggler from "./ThemeToggler";
 
 export default function Sidebar({ currentUser }: { currentUser: any }) {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
@@ -310,14 +302,15 @@ export default function Sidebar({ currentUser }: { currentUser: any }) {
           ))}
 
           {/* Dark Mode Toggle */}
-          <div className="flex items-center  gap-2 mt-4 px-2">
+          {/* <div className="flex items-center  gap-2 mt-4 px-2">
             <Sun />
             <Switch
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               className="data-[state=checked]:bg-subtitle data-[state=unchecked]:bg-subtitle "
             />
             <Moon />
-          </div>
+          </div> */}
+          <ThemeToggler theme={theme} setTheme={setTheme} />
         </div>
       </motion.div>
     </>

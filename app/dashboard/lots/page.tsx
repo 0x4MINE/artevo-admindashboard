@@ -61,7 +61,11 @@ function Lots() {
   return (
     <div className="bg-background min-h-screen">
       <Toaster richColors />
-      <ContentNavbar setSearch={handleSearchChange} setPopUp={setPopUp} />
+      <ContentNavbar
+        filters={["active", "date", "quantity", "buyAmount", "sellAmount"]}
+        setSearch={handleSearchChange}
+        setPopUp={setPopUp}
+      />
       <div className="p-8">
         <ActiveFilterBar filteredData={data} />
         {loading ? (
@@ -76,6 +80,7 @@ function Lots() {
             currentPage={currentPage}
             onPageChange={setCurrentPage}
             totalItems={totalItems}
+            showActions={false}
           />
         )}
       </div>

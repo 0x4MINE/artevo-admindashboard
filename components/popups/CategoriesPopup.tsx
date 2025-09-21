@@ -30,13 +30,15 @@ function CategoriesPopup({
   });
 
   useEffect(() => {
+    
     if (editCategory) {
       setForm({
-        id: editCategory.id,
+        id: editCategory.cat_id,
         name: editCategory.name,
         isActive: editCategory.isActive,
         spent: editCategory.spent || 0,
       });
+      console.log(editCategory)
     } else {
       setForm((prev) => ({ ...prev, id: newClientId }));
     }

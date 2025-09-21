@@ -37,7 +37,7 @@ function ExpensesPopup({
   useEffect(() => {
     if (isEditMode && editUser) {
       setForm({
-        id: editUser.id,
+        id: editUser.expense_id,
         name: editUser.name,
         price:
           typeof editUser.price === "number"
@@ -48,6 +48,7 @@ function ExpensesPopup({
             ? editUser.createdAt
             : Date.now(),
       });
+      console.log(editUser)
     } else {
       setForm((prev) => ({ ...prev, id: newExpenseId }));
     }
