@@ -203,8 +203,18 @@ function validateBonData(data: any): asserts data is {
   billDate: string;
   billNo: string;
   userId: string;
+  reglement: string;
 } {
-  const { products, services, client, total, billDate, billNo, userId } = data;
+  const {
+    products,
+    services,
+    client,
+    total,
+    billDate,
+    billNo,
+    userId,
+    reglement,
+  } = data;
 
   if (!userId) {
     throw new Error("User authentication required");
@@ -225,7 +235,9 @@ function validateBonData(data: any): asserts data is {
   if (!client || !client._id) {
     throw new Error("Client selection is required");
   }
-
+  if (!reglement || typeof reglement !== "string" || reglement.trim() === "") {
+    throw new Error("Payment terms (reglement) is required");
+  }
   if (
     (!products || products.length === 0) &&
     (!services || services.length === 0)
@@ -613,6 +625,7 @@ export async function POST(req: NextRequest) {
       billDate,
       billNo,
       userId,
+      reglement,
     } = requestData;
 
     await connectDB();
@@ -657,6 +670,7 @@ export async function POST(req: NextRequest) {
         date: new Date(billDate),
         userId,
         clientId: client._id,
+        reglement,
       });
 
       // Step 4: Create detail records

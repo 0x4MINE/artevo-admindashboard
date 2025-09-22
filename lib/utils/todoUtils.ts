@@ -41,7 +41,6 @@ export const isUrgent = (task: Task): boolean => {
     (task.priority === "high" || task.priority === "medium")
   );
 };
-// Add these functions to your lib/utils/todoUtils.ts file
 
 /**
  * Check if a date is today
@@ -76,3 +75,16 @@ export const isDueThisWeek = (date: Date): boolean => {
   return date >= startOfWeek && date <= endOfWeek;
 };
 
+
+
+export function formatDateTimeLocal(date: Date) {
+  const pad = (n: number) => n.toString().padStart(2, "0");
+
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}

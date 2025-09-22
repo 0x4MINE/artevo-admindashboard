@@ -9,7 +9,11 @@ import path from "path";
 import fs from "fs/promises";
 import mongoose from "mongoose";
 import { ToWords } from "to-words";
-import { ISellFact, SellFact } from "@/lib/models/sellFactureModel";
+import {
+  ISellFact,
+  SellFact,
+  SellFDetails,
+} from "@/lib/models/sellFactureModel";
 
 const toWords = new ToWords({
   localeCode: "fr-FR",
@@ -74,7 +78,7 @@ interface FactureData {
   total: number;
   billDate: string;
   billNo: string;
-  paymentMethod?: string;
+  reglement?: string;
 }
 
 const ERROR_TYPES = {
@@ -94,7 +98,6 @@ const ERROR_MESSAGES: Record<string, string> = {
   PDF_GENERATION_ERROR: "Failed to generate invoice PDF",
   INTERNAL_ERROR: "An unexpected error occurred",
 };
-
 
 function createErrorResponse(
   errorType: string,
@@ -200,6 +203,17 @@ function validateFactureRequest(bonId: string | null): asserts bonId is string {
   }
 }
 
+function validateConvertRequest(bonId: string | null) {
+  if (!bonId) {
+    throw new Error("Bon ID is required");
+  }
+
+  // Basic ObjectId format validation
+  if (!/^[0-9a-fA-F]{24}$/.test(bonId)) {
+    throw new Error("Invalid Bon ID format");
+  }
+}
+
 function calculateTotals(
   products: ProductService[],
   services: ProductService[]
@@ -234,7 +248,6 @@ async function generateFacturePDF(
   try {
     const doc = new jsPDF({ unit: "pt", format: "a4" });
 
-    console.log({ services:factureData.products });
     // Get company info
     const companyInfo: CompanyInfo = await getInfo();
 
@@ -253,7 +266,7 @@ async function generateFacturePDF(
     const billInfo = [
       `FACTURE No ${factureData.billNo}`,
       `Date: ${new Date(factureData.billDate).toLocaleDateString("fr-FR")}`,
-      `Reglement: ${factureData.paymentMethod || "Cheque"}`,
+      `Reglement: ${factureData.reglement || "Cheque"}`,
     ];
 
     const clientInfo = [
@@ -338,7 +351,7 @@ async function generateFacturePDF(
     doc.setFontSize(20);
     doc.text(billType, billTypeX, billTypeY);
 
-    // Bill type Rectangle 
+    // Bill type Rectangle
     //doc.rect(380, 150, 115, 30);
 
     // Prepare table data
@@ -351,7 +364,7 @@ async function generateFacturePDF(
       p.quantity.toString(),
       `${p.sellPrice.toFixed(2)} DA`,
       `${p.tva || 0}%`,
-      `${((p.sellPrice * p.quantity*((p.tva||0)/100)) + p.sellPrice).toFixed(2)} DA`,
+      `${(p.sellPrice * p.quantity * (1 + (p.tva || 0) / 100)).toFixed(2)} DA`,
     ]);
 
     // Format services data (keeping original style)
@@ -360,15 +373,16 @@ async function generateFacturePDF(
       s.quantity.toString(),
       `${s.sellPrice.toFixed(2)} DA`,
       `${s.tva || 0}%`,
-      `${((s.sellPrice * s.quantity*((s.tva||0)/100))+s.sellPrice).toFixed(2)} DA`,
+      `${(s.sellPrice * s.quantity * (1 + (s.tva || 0) / 100)).toFixed(2)} DA`,
     ]);
 
     // Add totals row for products
     if (products.length > 0) {
       const productsTotal = factureData.products.reduce(
-        (sum, p) => sum + ((p.sellPrice * p.quantity*((p.tva||0)/100)) + p.sellPrice),
+        (sum, p) => sum + p.sellPrice * p.quantity * (1 + (p.tva || 0) / 100),
         0
       );
+
       products.push([
         { content: "", styles: { lineWidth: 0 } },
         { content: "", styles: { lineWidth: 0 } },
@@ -392,11 +406,11 @@ async function generateFacturePDF(
 
     // Add totals row for services
     if (services.length > 0) {
-      console.log(services);
       const servicesTotal = factureData.services.reduce(
-        (sum, s) => sum + ((s.sellPrice * s.quantity*((s.tva||0)/100))+s.sellPrice),
+        (sum, p) => sum + p.sellPrice * p.quantity * (1 + (p.tva || 0) / 100),
         0
       );
+
       services.push([
         { content: "", styles: { lineWidth: 0 } },
         { content: "", styles: { lineWidth: 0 } },
@@ -575,19 +589,17 @@ async function generateFacturePDF(
   }
 }
 
-
-
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const bonId = searchParams.get("bonId");
 
     // Validate request
-    validateFactureRequest(bonId);
+    validateConvertRequest(bonId);
 
     await connectDB();
 
-    // Fetch bon data
+    // Fetch bon data with populated client
     const bon = await SellBon.findById(bonId).populate("clientId");
     if (!bon) {
       return createErrorResponse(
@@ -597,16 +609,65 @@ export async function GET(req: NextRequest) {
     }
 
     // Fetch bon details
-    const details = await SellBDetails.find({ sellBonId: bonId });
-    if (!details.length) {
+    const bonDetails = await SellBDetails.find({ sellBonId: bonId });
+    if (!bonDetails.length) {
       return createErrorResponse(
         ERROR_TYPES.BON_DETAILS_NOT_FOUND,
         "Transaction details not found"
       );
     }
 
+    // Check if SellFact already exists for this bon
+    const originalCode = `BON-${bon.sellBonId}`;
+    let existingSellFact = await SellFact.findOne({ originalCode }).populate(
+      "clientId"
+    );
+
+    console.log("existingSellFact:", existingSellFact);
+    let savedSellFact;
+    let savedFactDetails;
+
+    if (existingSellFact) {
+      // Use existing SellFact
+      savedSellFact = existingSellFact;
+      // Fetch existing details
+      savedFactDetails = await SellFDetails.find({
+        sellFactId: existingSellFact._id,
+      });
+    } else {
+      // Create new SellFact
+      const newSellFact = new SellFact({
+        userId: bon.userId,
+        clientId: bon.clientId,
+        date: new Date(),
+        reglement: bon.reglement,
+        originalCode,
+        type: "sale",
+      });
+
+      savedSellFact = await newSellFact.save();
+
+      // Create SellFDetails from SellBDetails
+      const factDetails = bonDetails.map((detail) => ({
+        sellFactId: savedSellFact._id,
+        name: detail.name,
+        quantity: detail.quantity,
+        price: detail.price,
+        type: detail.type,
+        tva: detail.tva || 0,
+      }));
+
+      // Insert all details
+      savedFactDetails = await SellFDetails.insertMany(factDetails);
+    }
+
+    // Fetch the complete SellFact with populated data
+    const completeSellFact = savedSellFact.clientId
+      ? savedSellFact
+      : await SellFact.findById(savedSellFact._id).populate("clientId");
+
     // Prepare facture data
-    const products = details
+    const products = savedFactDetails
       .filter((d) => d.type === "product")
       .map((d) => ({
         _id: d._id,
@@ -617,7 +678,7 @@ export async function GET(req: NextRequest) {
         type: "product" as const,
       }));
 
-    const services = details
+    const services = savedFactDetails
       .filter((d) => d.type === "service")
       .map((d) => ({
         _id: d._id,
@@ -628,27 +689,30 @@ export async function GET(req: NextRequest) {
         type: "service" as const,
       }));
 
-    const client: Client = {
-      name: bon.clientId?.name || "N/A",
-      phone: bon.clientId?.phone,
-      email: bon.clientId?.email,
-      address: bon.clientId?.address,
-      nif: bon.clientId?.nif,
-      _id: bon.clientId?._id,
+    const client = {
+      name: completeSellFact.clientId?.name || "N/A",
+      phone: completeSellFact.clientId?.phone,
+      email: completeSellFact.clientId?.email,
+      address: completeSellFact.clientId?.address,
+      nif: completeSellFact.clientId?.nif,
+      _id: completeSellFact.clientId?._id,
     };
 
-    const total = details.reduce((sum, d) => sum + d.price * d.quantity, 0);
-    const billDate = bon.date.toISOString().split("T")[0];
-    const billNo = formatBillNo(bon.sellBonId);
+    const total = savedFactDetails.reduce(
+      (sum, d) => sum + d.price * d.quantity,
+      0
+    );
+    const billDate = completeSellFact.date.toISOString().split("T")[0];
+    const billNo = formatBillNo(completeSellFact.sellFactId);
 
-    const factureData: FactureData = {
+    const factureData = {
       products,
       services,
       client,
       total,
       billDate,
       billNo,
-      paymentMethod: "Cheque", 
+      reglement: completeSellFact.reglement,
     };
 
     // Generate PDF
@@ -658,13 +722,14 @@ export async function GET(req: NextRequest) {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `inline; filename=facture-${billNo}.pdf`,
-        "Cache-Control": "public, max-age=3600",
+        // "Cache-Control": "public, max-age=3600",
         "Content-Length": buffer.byteLength.toString(),
       },
     });
   } catch (error: any) {
-    console.error("Facture generation error:", error);
+    console.error("Convert Bon to Fact error:", error);
 
+    // Handle validation errors
     if (
       error.message.includes("Bon ID is required") ||
       error.message.includes("Invalid Bon ID format")
@@ -672,23 +737,43 @@ export async function GET(req: NextRequest) {
       return createErrorResponse(ERROR_TYPES.VALIDATION_ERROR, error.message);
     }
 
-    if (error.message.includes("Failed to generate PDF")) {
+    // Handle database errors
+    if (error.name === "ValidationError") {
       return createErrorResponse(
-        ERROR_TYPES.PDF_GENERATION_ERROR,
-        error.message
+        ERROR_TYPES.VALIDATION_ERROR,
+        `Database validation error: ${error.message}`
       );
     }
 
+    if (error.name === "CastError") {
+      return createErrorResponse(
+        ERROR_TYPES.VALIDATION_ERROR,
+        "Invalid ID format provided"
+      );
+    }
+
+    // Handle duplicate key errors
+    if (error.code === 11000) {
+      return createErrorResponse(
+        ERROR_TYPES.INTERNAL_ERROR,
+        "A fact with similar data already exists"
+      );
+    }
+
+    // Handle PDF generation errors
+    if (error.message.includes("Failed to generate PDF")) {
+      return createErrorResponse(ERROR_TYPES.INTERNAL_ERROR, error.message);
+    }
+
+    // Generic error fallback
     return createErrorResponse(
       ERROR_TYPES.INTERNAL_ERROR,
-      "An unexpected error occurred while generating the invoice"
+      "An unexpected error occurred while converting bon to fact"
     );
   }
 }
-
-
-export async function POST(req:NextRequest) {
-  const {bonId,paymentMethod,billType} = await req.json()
+export async function POST(req: NextRequest) {
+  const { bonId, reglement, billType } = await req.json();
   validateFactureRequest(bonId);
 
   await connectDB();
@@ -710,13 +795,12 @@ export async function POST(req:NextRequest) {
   }
 
   const facture = await SellFact.create({
-  
-    date:bon.date,
-    userId:bon.userId,
+    date: bon.date,
+    userId: bon.userId,
     clientId: bon.clientId,
-    reglement:paymentMethod ?? "cash",
-    type:billType,
-  })
+    reglement: reglement ?? "cash",
+    type: billType,
+  });
   const products = details
     .filter((d) => d.type === "product")
     .map((d) => ({

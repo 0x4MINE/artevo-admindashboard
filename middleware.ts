@@ -17,7 +17,7 @@ export async function middleware(request: NextRequest) {
   try {
     session = await Decrypt(sessionToken);
   } catch (error) {
-    // Session decryption failed (corrupted or invalid token)
+    // Session decryption failed
     console.error("Session decryption failed:", error);
     
     if (isApiRequest) {

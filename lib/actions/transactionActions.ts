@@ -389,7 +389,7 @@ export async function createBuyTransaction(data: CreateBuyTransactionData) {
         quantity: 1,
         price: s.buyPrice,
         type: "service",
-        tva: 0, // Add default TVA
+        tva: 0, 
       });
     }
 
@@ -406,7 +406,7 @@ export async function createBuyTransaction(data: CreateBuyTransactionData) {
       } transaction saved successfully`,
     };
   } catch (error) {
-    console.error("❌ Error creating buy transaction:", error);
+    console.error("❌ Error creating buy transaction:", error.stack);
     return {
       success: false,
       error: error.message || "Failed to create transaction",
@@ -419,14 +419,26 @@ async function handlePurchaseProducts(
   buyFactId: string
 ) {
   for (const p of data.products) {
-    // Check if lot already exists for this product & supplier
-    let lot = await Lot.findOne({
-      prod_id: p.prod_oid || null,
-      supp_id: data.suppId,
-    });
+    let lot = null;
+
+    // FIRST: Try to find lot by lot_id (if provided from frontend)
+    if (p.lot_id) {
+      lot = await Lot.findOne({ lot_id: p.lot_id });
+      console.log(`🔍 Searching by lot_id: ${p.lot_id}`, lot ? 'FOUND' : 'NOT FOUND');
+    }
+
+    // SECOND: If no lot found by lot_id, check by prod_id + supp_id (for new lots)
+    if (!lot) {
+      lot = await Lot.findOne({
+        prod_id: p.prod_oid,
+        supp_id: data.suppId,
+      });
+      console.log(`🔍 Searching by prod_id + supp_id:`, lot ? 'FOUND' : 'NOT FOUND');
+    }
 
     if (lot) {
       // Update existing lot
+      console.log(`📦 Updating existing lot: ${lot.lot_id}`);
       lot.quantity += p.quantity;
       lot.buyPrice = p.buyPrice;
       lot.sellPrice = p.sellPrice || lot.sellPrice;
@@ -439,8 +451,16 @@ async function handlePurchaseProducts(
         });
       }
     } else {
-      // Create new lot
+      // Create new lot ONLY if no existing lot found
+      console.log(`🆕 Creating new lot with lot_id: ${p.lot_id}`);
+      
+      // Validate that we have a lot_id for new lots
+      if (!p.lot_id) {
+        throw new Error(`lot_id is required for new lot creation for product: ${p.prod_name}`);
+      }
+
       lot = await Lot.create({
+        lot_id: p.lot_id,
         prod_id: p.prod_oid,
         supp_id: data.suppId,
         quantity: p.quantity,
@@ -465,11 +485,10 @@ async function handlePurchaseProducts(
       quantity: p.quantity,
       price: p.buyPrice,
       type: "product",
-      tva: 0, // Add default TVA
+      tva: 0,
     });
   }
 }
-
 async function handleReturnProducts(
   data: CreateBuyTransactionData,
   buyFactId: string

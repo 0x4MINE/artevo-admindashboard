@@ -22,7 +22,7 @@ import { BASEURL } from "@/constants/auth";
 interface Client {
   client_id: string;
   name: string;
-  credit: number;
+  debt: number;
   email?: string;
   phone?: string;
 }
@@ -56,7 +56,7 @@ interface SellBonData {
   userId: string;
   giveBonus: boolean;
   bonusPercent: number;
-  paymentMethod: string;
+  reglement: string;
 }
 
 function SellTransactionDetails() {
@@ -70,11 +70,12 @@ function SellTransactionDetails() {
     new Date().toISOString().split("T")[0]
   );
   const [isLoading, setIsLoading] = useState(false);
+  const [isTransactionCompleted, setIsTransactionCompleted] = useState(false);
 
   const [client, setClient] = useState<Client | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [services, setServices] = useState<Service[]>([]);
-  const [paymentMethod, setPaymentMethod] = useState("Cash");
+  const [reglement, setReglement] = useState("Cash");
   const [bonId, setBonId] = useState<string | null>(null);
   const [giveBonus, setGiveBonus] = useState(false);
   const [bonusPercent, setBonusPercent] = useState(15);
@@ -95,8 +96,18 @@ function SellTransactionDetails() {
     { key: "prod_name", label: "Product Name", type: "text" },
     { key: "lot_id", label: "Lot ID", type: "text" },
     { key: "buyPrice", label: "Cost Price", type: "currency" },
-    { key: "sellPrice", label: "Sell Price", type: "currency", editable: true },
-    { key: "quantity", label: "Quantity", type: "text", editable: true },
+    {
+      key: "sellPrice",
+      label: "Sell Price",
+      type: "currency",
+      editable: !isTransactionCompleted,
+    },
+    {
+      key: "quantity",
+      label: "Quantity",
+      type: "text",
+      editable: !isTransactionCompleted,
+    },
     { key: "availableStock", label: "In Stock", type: "text" },
   ];
 
@@ -104,7 +115,12 @@ function SellTransactionDetails() {
     { key: "serv_id", label: "Service ID", type: "text" },
     { key: "name", label: "Service Name", type: "text" },
     { key: "buyPrice", label: "Cost Price", type: "currency" },
-    { key: "sellPrice", label: "Sell Price", type: "currency", editable: true },
+    {
+      key: "sellPrice",
+      label: "Sell Price",
+      type: "currency",
+      editable: !isTransactionCompleted,
+    },
     { key: "tva", label: "TVA (%)", type: "text" },
   ];
 
@@ -187,12 +203,13 @@ function SellTransactionDetails() {
 
   const handleClientSelect = useCallback(
     (selectedClient: Client) => {
+      if (isTransactionCompleted) return;
       setClient(selectedClient);
       const params = new URLSearchParams(searchParams);
       params.set("client_id", selectedClient.client_id);
       router.push(`?${params.toString()}`);
     },
-    [searchParams, router]
+    [searchParams, router, isTransactionCompleted]
   );
 
   const validateStock = useCallback((products: Product[]): boolean => {
@@ -211,6 +228,8 @@ function SellTransactionDetails() {
   }, []);
 
   const handleSave = useCallback(async () => {
+    if (isTransactionCompleted) return;
+
     if (!client) {
       toast.error("Please select a client");
       return;
@@ -243,7 +262,7 @@ function SellTransactionDetails() {
         userId: user.id,
         giveBonus,
         bonusPercent,
-        paymentMethod,
+        reglement,
       };
 
       console.log({ sellBonData });
@@ -259,6 +278,7 @@ function SellTransactionDetails() {
       }
 
       setBonId(data.bonId);
+      setIsTransactionCompleted(true);
       setSuccessPopup(true);
       toast.success("Sell transaction saved successfully");
     } catch (error: any) {
@@ -277,42 +297,39 @@ function SellTransactionDetails() {
     user?.id,
     giveBonus,
     bonusPercent,
-    paymentMethod,
+    reglement,
     validateStock,
+    isTransactionCompleted,
   ]);
 
-  // Print Facture/Invoice from Sell Bon
-  const handlePrintFacture = useCallback(async () => {
-    if (!bonId) {
-      toast.error("Save the transaction first before creating Invoice");
-      return;
-    }
+  const handleNewTransaction = useCallback(() => {
+    // Reset all state
+    setProducts([]);
+    setServices([]);
+    setBonId(null);
+    setGiveBonus(false);
+    setBonusPercent(15);
+    setIsTransactionCompleted(false);
+    setReglement("Cash");
 
-    try {
-      setIsLoading(true);
-      const res = await fetch(`/api/sell-facture?bonId=${bonId}`);
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to generate Invoice");
+    // Generate new bill number
+    const fetchNewBillNo = async () => {
+      try {
+        const next = await getNextNumber("sellBonId");
+        setBillNo(next);
+      } catch (err) {
+        console.error("Failed to fetch new bill number", err);
+        setBillNo("SELL-N/A");
       }
+    };
 
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      window.open(url, "_blank");
-
-      // Clean up the URL object
-      setTimeout(() => window.URL.revokeObjectURL(url), 100);
-
-      toast.success("Invoice generated successfully");
-    } catch (error: any) {
-      console.error("❌ Error generating Invoice:", error);
-      toast.error(error.message || "Failed to create Invoice");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [bonId]);
+    fetchNewBillNo();
+    toast.success("Ready for new transaction");
+  }, []);
 
   const handleCancel = useCallback(() => {
+    if (isTransactionCompleted) return;
+
     if (products.length > 0 || services.length > 0) {
       if (!confirm("Are you sure you want to cancel? All data will be lost.")) {
         return;
@@ -323,10 +340,12 @@ function SellTransactionDetails() {
     setBonId(null);
     setGiveBonus(false);
     setBonusPercent(5);
-  }, [products.length, services.length]);
+  }, [products.length, services.length, isTransactionCompleted]);
 
   const handleProductEdit = useCallback(
     (updatedRow: Product, rowIndex: number) => {
+      if (isTransactionCompleted) return;
+
       setProducts((prev) => {
         const updated = [...prev];
         const updatedProduct = {
@@ -349,11 +368,13 @@ function SellTransactionDetails() {
         return updated;
       });
     },
-    []
+    [isTransactionCompleted]
   );
 
   const handleServiceEdit = useCallback(
     (updatedRow: Service, rowIndex: number) => {
+      if (isTransactionCompleted) return;
+
       setServices((prev) => {
         const updated = [...prev];
         updated[rowIndex] = {
@@ -363,11 +384,17 @@ function SellTransactionDetails() {
         return updated;
       });
     },
-    []
+    [isTransactionCompleted]
   );
 
   return (
-    <div>
+    <div
+    // className={
+    //   isTransactionCompleted
+    //     ? "pointer-events-none select-none opacity-75"
+    //     : ""
+    // }
+    >
       <Toaster richColors />
 
       {/* Header Buttons */}
@@ -375,14 +402,14 @@ function SellTransactionDetails() {
         <button
           className="bg-btn-primary text-white py-3 px-2 rounded-2xl text-md hover:opacity-90 disabled:opacity-50"
           onClick={() => setProductPopup(true)}
-          disabled={isLoading}
+          disabled={isLoading || isTransactionCompleted}
         >
           <span className="font-bold">+</span> ADD PRODUCT
         </button>
         <button
           className="bg-btn-primary mx-2 text-white py-3 px-2 rounded-2xl text-md hover:opacity-90 disabled:opacity-50"
           onClick={() => setServicePopup(true)}
-          disabled={isLoading}
+          disabled={isLoading || isTransactionCompleted}
         >
           <span className="font-bold">+</span> ADD SERVICE
         </button>
@@ -403,7 +430,7 @@ function SellTransactionDetails() {
                 value={billDate}
                 onChange={(e) => setBillDate(e.target.value)}
                 className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
-                disabled={isLoading}
+                disabled={isLoading || isTransactionCompleted}
               />
               <span className="flex items-center gap-2 cursor-pointer">
                 {formattedDate}
@@ -414,9 +441,9 @@ function SellTransactionDetails() {
               </span>
             </div>
           </div>
+
           <p>
-            Payment Method:{" "}
-            <span className="font-semibold">{paymentMethod}</span>
+            Reglement: <span className="font-semibold">{reglement}</span>
           </p>
         </div>
         <div>
@@ -430,15 +457,18 @@ function SellTransactionDetails() {
               size={25}
               onClick={() => setClientPopup(true)}
               style={{
-                opacity: isLoading ? 0.5 : 1,
-                cursor: isLoading ? "not-allowed" : "pointer",
+                opacity: isLoading || isTransactionCompleted ? 0.5 : 1,
+                cursor:
+                  isLoading || isTransactionCompleted
+                    ? "not-allowed"
+                    : "pointer",
               }}
             />
           </p>
           <p>
             Client Credit :{" "}
             <span className="font-semibold">
-              {client?.credit?.toLocaleString() || "0.00"} DA
+              {client?.debt?.toLocaleString() || "0.00"} DA
             </span>
           </p>
           <p>
@@ -500,29 +530,40 @@ function SellTransactionDetails() {
       {/* Footer with Actions and Totals */}
       <div className="flex justify-between items-center px-8 py-4">
         <div className="flex gap-2">
-          <button
-            onClick={handleSave}
-            disabled={isLoading}
-            className="bg-btn-primary text-white py-3 px-8 rounded-2xl text-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isLoading ? "Saving..." : "Save Sale"}
-          </button>
+          {isTransactionCompleted ? (
+            <button
+              onClick={handleNewTransaction}
+              className="bg-green-600 text-white py-3 px-8 rounded-2xl text-md hover:opacity-90 pointer-events-auto"
+            >
+              New Transaction
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={handleSave}
+                disabled={isLoading}
+                className="bg-btn-primary text-white py-3 px-8 rounded-2xl text-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? "Saving..." : "Save Sale"}
+              </button>
 
-          <button
-            onClick={() => setPayPopup(true)}
-            disabled={isLoading}
-            className="bg-blue-600 text-white py-3 px-6 rounded-2xl text-md hover:opacity-90 disabled:opacity-50"
-          >
-            Payment
-          </button>
+              <button
+                onClick={() => setPayPopup(true)}
+                disabled={isLoading}
+                className="bg-blue-600 text-white py-3 px-6 rounded-2xl text-md hover:opacity-90 disabled:opacity-50"
+              >
+                Payment
+              </button>
 
-          <button
-            onClick={handleCancel}
-            disabled={isLoading}
-            className="bg-transparent text-btn-secondary border border-btn-secondary py-3 px-6 rounded-2xl text-md hover:bg-btn-secondary hover:text-white transition-colors disabled:opacity-50"
-          >
-            Cancel
-          </button>
+              <button
+                onClick={handleCancel}
+                disabled={isLoading}
+                className="bg-transparent text-btn-secondary border border-btn-secondary py-3 px-6 rounded-2xl text-md hover:bg-btn-secondary hover:text-white transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </>
+          )}
         </div>
 
         <div>
@@ -544,7 +585,7 @@ function SellTransactionDetails() {
             <Switch
               checked={giveBonus}
               onCheckedChange={setGiveBonus}
-              disabled={isLoading}
+              disabled={isLoading || isTransactionCompleted}
             />
             {giveBonus && (
               <input
@@ -554,7 +595,7 @@ function SellTransactionDetails() {
                 className="w-16 px-2 py-1 border rounded"
                 min="0"
                 max="100"
-                disabled={isLoading}
+                disabled={isLoading || isTransactionCompleted}
               />
             )}
           </div>
@@ -563,7 +604,7 @@ function SellTransactionDetails() {
 
       {/* POPUPS */}
       <SelectProduct
-        isOpen={productPopup}
+        isOpen={productPopup && !isTransactionCompleted}
         onClose={() => setProductPopup(false)}
         onSelect={(product) => {
           setSelectedProduct(product);
@@ -572,7 +613,7 @@ function SellTransactionDetails() {
         }}
       />
       <SelectLot
-        isOpen={lotPopup}
+        isOpen={lotPopup && !isTransactionCompleted}
         productId={selectedProduct?._id}
         onClose={() => setLotPopup(false)}
         onSelect={(lot) => {
@@ -592,7 +633,7 @@ function SellTransactionDetails() {
         }}
       />
       <SelectService
-        isOpen={servicePopup}
+        isOpen={servicePopup && !isTransactionCompleted}
         onClose={() => setServicePopup(false)}
         onSelect={(service) => {
           console.log(service);
@@ -600,7 +641,7 @@ function SellTransactionDetails() {
         }}
       />
       <SelectClient
-        isOpen={clientPopup}
+        isOpen={clientPopup && !isTransactionCompleted}
         onClose={() => setClientPopup(false)}
         onSelect={handleClientSelect}
       />
@@ -621,18 +662,17 @@ function SellTransactionDetails() {
           );
         }}
         onPrintFacture={() => {
-          window.open(
-            `${BASEURL}/api/sell-facture?format=a6&bonId=${bonId}`,
-            "_blank"
-          );        }}
+          window.open(`${BASEURL}/api/sell-facture?bonId=${bonId}`, "_blank");
+        }}
         total={calculations.total}
         clientName={client?.name || ""}
       />
-            <PayPopup
+
+      <PayPopup
         isOpen={payPopup}
         onClose={() => setPayPopup(false)}
-        paymentMethod={paymentMethod}
-        setPaymentMethod={setPaymentMethod}
+        paymentMethod={reglement}
+        setPaymentMethod={setReglement}
       />
     </div>
   );

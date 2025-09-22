@@ -65,7 +65,7 @@ export default function ThemeToggler({ theme, setTheme, className = "" }: ThemeT
               transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 200, damping: 20 }}
               className="relative will-change-transform"
             >
-              <Sun className={`h-4 w-4 ${isDark ? "text-muted-foreground" : "text-amber-500"}`} />
+              <Sun className={`h-5 w-5 ${isDark ? "text-muted-foreground" : "text-amber-500"}`} />
             </motion.div>
             
             {/* Switch */}
@@ -77,7 +77,7 @@ export default function ThemeToggler({ theme, setTheme, className = "" }: ThemeT
               <Switch
                 checked={isDark}
                 onCheckedChange={handleThemeChange}
-                className="data-[state=checked]:bg-slate-700 data-[state=unchecked]:bg-amber-200 shadow-md hover:shadow-lg border border-border/20"
+                className="data-[state=checked]:bg-slate-700 data-[state=unchecked]:bg-amber-200 shadow-md hover:shadow-lg "
                 aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
                 tabIndex={0}
                 role="switch"
@@ -94,7 +94,7 @@ export default function ThemeToggler({ theme, setTheme, className = "" }: ThemeT
               transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 200, damping: 20 }}
               className="relative will-change-transform"
             >
-              <Moon className={`h-4 w-4 ${isDark ? "text-blue-400" : "text-muted-foreground"}`} />
+              <Moon className={`h-5 w-5 ${isDark ? "text-blue-400" : "text-muted-foreground"}`} />
             </motion.div>
             
             {/* Reduced motion particles */}

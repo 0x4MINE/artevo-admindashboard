@@ -18,12 +18,14 @@ export interface ITask extends Document {
   projectId: Types.ObjectId;
   title: string;
   description?: string;
-  deadline?: Date;
   priority: TaskPriority;
   status: TaskStatus;
-  subtasks: Types.ObjectId[];
-  createdAt: Date;
-  updatedAt: Date;
+  subtasks: ISubtask[];
+  deadline?: Date;
+  tags?: string[];
+  assignee?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface ISubtask extends Document {
@@ -74,6 +76,8 @@ const TaskSchema = new Schema<ITask>(
       index: true,
     },
     subtasks: [{ type: Schema.Types.ObjectId, ref: "Subtask" }],
+    assignee: { type: String },
+    tags: [{ type: String }],
   },
   { timestamps: true }
 );

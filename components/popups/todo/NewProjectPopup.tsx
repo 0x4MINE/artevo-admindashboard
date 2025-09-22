@@ -2,19 +2,20 @@
 import AddButton from "@/components/AddButton";
 import Popup from "@/components/Popup";
 import AddTextInput from "@/components/forms/AddTextInput";
-import SelectInput from "@/components/forms/SelectInput";
 import { createProject } from "@/lib/actions/todoActions";
 import { IProject } from "@/lib/models/projectModel";
-import { X } from "lucide-react";
-
+import { formatDateTimeLocal } from "@/lib/utils/todoUtils";
 import React, { useState } from "react";
 import { toast } from "sonner";
+
 type PopupProps = {
   isOpen: boolean;
   onClose: () => void;
   setSelectedProject: (value: React.SetStateAction<string | null>) => void;
   setProjects: (value: React.SetStateAction<IProject[]>) => void;
 };
+
+
 function NewProjectPopup({
   isOpen,
   onClose,
@@ -24,7 +25,7 @@ function NewProjectPopup({
   const [form, setForm] = useState({
     name: "",
     description: "",
-    deadline: null,
+    deadline: formatDateTimeLocal(new Date()), 
   });
 
   const addProject = async () => {
@@ -34,14 +35,14 @@ function NewProjectPopup({
       const newProject = await createProject({
         name: form.name.trim(),
         description: form.description?.trim(),
-        deadline: form.deadline,
+        deadline: new Date(form.deadline), 
         status: "pending",
         tasks: [],
       });
 
       setProjects((prev) => [newProject, ...prev]);
       setSelectedProject(newProject._id);
-      toast.success("Project created succesfully");
+      toast.success("Project created successfully");
     } catch (error) {
       console.error("Failed to create project:", error);
       toast.error("Failed to create project");
@@ -54,10 +55,14 @@ function NewProjectPopup({
         onSubmit={(e) => {
           e.preventDefault();
           addProject();
-          setForm({ name: "", description: "" });
+          setForm({
+            name: "",
+            description: "",
+            deadline: formatDateTimeLocal(new Date()), 
+          });
           onClose();
         }}
-        className="flex flex-col gap-4  text-center max-h-[80vh] w-xl overflow-y-auto px-12"
+        className="flex flex-col gap-4 text-center max-h-[80vh] w-xl overflow-y-auto px-12"
       >
         {/* Header */}
         <div className="flex flex-col items-center mb-4">
@@ -66,32 +71,35 @@ function NewProjectPopup({
           </h1>
         </div>
 
-        <div>
-          <AddTextInput
-            placeholder="Project Name"
-            autoFocus
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-          />
-        </div>
-
-        <div>
-          <textarea
-            //   onChange={(e) => setDescription(e.target.value)}
-            className="bg-secondary text-title p-5 rounded-2xl text-center placeholder:text-center w-full"
-            rows={3}
-            placeholder="Enter project description (optional)"
-          />
-        </div>
+        {/* Project Name */}
         <AddTextInput
-          type="date"
+          placeholder="Project Name"
+          autoFocus
+          value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
+        />
+
+        {/* Description */}
+        <textarea
+          value={form.description}
+          onChange={(e) => setForm({ ...form, description: e.target.value })}
+          className="bg-secondary text-title p-5 rounded-2xl text-center placeholder:text-center w-full"
+          rows={3}
+          placeholder="Enter project description (optional)"
+        />
+
+        {/* Deadline */}
+        <AddTextInput
+          type="datetime-local"
           placeholder="Deadline"
           value={form.deadline}
           onChange={(e) => setForm({ ...form, deadline: e.target.value })}
         />
+
         <AddButton type="submit" text={"Create Project"} />
       </form>
     </Popup>
   );
 }
+
 export default NewProjectPopup;

@@ -7,6 +7,7 @@ import React, { useState } from "react";
 import SelectInput from "@/components/forms/SelectInput";
 import AddButton from "@/components/AddButton";
 import { toast } from "sonner";
+import { Project } from "@/app/dashboard/todo/page";
 
 type PopupProps = {
   isOpen: boolean;
@@ -25,7 +26,7 @@ function AddTaskPopup({
     title: "",
     description: "",
     priority: "medium" as TaskPriority,
-    deadline: "",
+    deadline: new Date().toISOString().split("T")[0],
     assignee: "",
     tags: [] as string[],
   });
@@ -36,7 +37,7 @@ function AddTaskPopup({
       title: "",
       description: "",
       priority: "medium",
-      deadline: "",
+      deadline: new Date().toISOString().split("T")[0],
       assignee: "",
       tags: [],
     });

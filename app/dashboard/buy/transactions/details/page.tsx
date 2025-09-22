@@ -10,17 +10,17 @@ import SelectSupplier from "@/components/select/selectSupplier";
 import { Column } from "@/types/Column";
 import { Calendar, RefreshCcw } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   getNextNumber,
   createBuyTransaction,
 } from "@/lib/actions/transactionActions";
 import { useUserStore } from "@/lib/store/useUser";
 import { toast, Toaster } from "sonner";
-import { BASEURL } from "@/constants/auth";
 import { getSupplierById } from "@/lib/actions/supplierActions";
 import AddTextInput from "@/components/forms/AddTextInput";
 import NewBtn from "@/components/forms/NewBtn";
+import SuccessBuyPopup from "@/components/popups/SuccessBuyPopup";
 
 function Details() {
   const searchParams = useSearchParams();
@@ -32,6 +32,8 @@ function Details() {
   const [billDate, setBillDate] = useState<string>(
     new Date().toISOString().split("T")[0]
   );
+  const [isLoading, setIsLoading] = useState(false);
+  const [isTransactionCompleted, setIsTransactionCompleted] = useState(false);
 
   const [supplier, setSupplier] = useState<any>({});
   const [products, setProducts] = useState<any[]>([]);
@@ -58,15 +60,35 @@ function Details() {
     { key: "prod_id", label: "Product ID", type: "text" },
     { key: "prod_name", label: "Product Name", type: "text" },
     { key: "lot_id", label: "Lot ID", type: "text" },
-    { key: "buyPrice", label: "Buy Price", type: "currency", editable: true },
-    { key: "sellPrice", label: "Sell Price", type: "currency", editable: true },
-    { key: "quantity", label: "Quantity", type: "text", editable: true },
+    {
+      key: "buyPrice",
+      label: "Buy Price",
+      type: "currency",
+      editable: !isTransactionCompleted,
+    },
+    {
+      key: "sellPrice",
+      label: "Sell Price",
+      type: "currency",
+      editable: !isTransactionCompleted,
+    },
+    {
+      key: "quantity",
+      label: "Quantity",
+      type: "text",
+      editable: !isTransactionCompleted,
+    },
   ];
 
   const sColumns: Column[] = [
     { key: "serv_id", label: "ID", type: "text" },
     { key: "name", label: "Name", type: "text" },
-    { key: "buyPrice", label: "Buy Price", type: "currency", editable: true },
+    {
+      key: "buyPrice",
+      label: "Buy Price",
+      type: "currency",
+      editable: !isTransactionCompleted,
+    },
     { key: "tva", label: "TVA", type: "text" },
   ];
 
@@ -116,14 +138,21 @@ function Details() {
     })();
   }, []);
 
-  const handleSupplierSelect = (selectedSupplier: any) => {
-    setSupplier(selectedSupplier);
-    const params = new URLSearchParams(searchParams);
-    params.set("supp_id", selectedSupplier.supp_id || selectedSupplier._id);
-    router.push(`?${params.toString()}`);
-  };
+  const handleSupplierSelect = useCallback(
+    (selectedSupplier: any) => {
+      if (isTransactionCompleted) return;
 
-  const handleSave = async () => {
+      setSupplier(selectedSupplier);
+      const params = new URLSearchParams(searchParams);
+      params.set("supp_id", selectedSupplier.supp_id || selectedSupplier._id);
+      router.push(`?${params.toString()}`);
+    },
+    [searchParams, router, isTransactionCompleted]
+  );
+
+  const handleSave = useCallback(async () => {
+    if (isTransactionCompleted) return;
+
     try {
       if (!supplier?.supp_id && !supplier?._id) {
         toast.error("Please select a supplier");
@@ -164,7 +193,11 @@ function Details() {
         toast.error("Please ensure all services have valid name and buy price");
         return;
       }
-      console.log(products);
+
+      setIsLoading(true);
+
+      console.log("Products before mapping:", products);
+
       const transactionData = {
         date: billDate,
         userId: user.id,
@@ -173,9 +206,9 @@ function Details() {
         originalCode: originalBill || undefined,
         type: "purchase" as const,
         products: products.map((product) => ({
-          lot_id: product._id,
+          lot_id: product.lot_id || product._id,
           prod_name: product.prod_name,
-          prod_oid: product.prod_oid,
+          prod_oid: product.prod_oid || product.prod_id?._id,
           quantity: Number(product.quantity),
           sellPrice: Number(product.sellPrice) || 0,
           buyPrice: Number(product.buyPrice),
@@ -186,6 +219,9 @@ function Details() {
         })),
       };
 
+      console.log("Transaction data being sent:", transactionData);
+      console.log("products data being sent:", products);
+
       const result = await createBuyTransaction(transactionData);
 
       if (!result.success) {
@@ -194,33 +230,57 @@ function Details() {
 
       setSavedTransactionId(result._id);
       setSavedBuyFactId(result.buyFactId);
+      setIsTransactionCompleted(true);
+      setSuccessPopup(true);
       toast.success(
         result.message || "Purchase transaction saved successfully"
       );
-      setSuccessPopup(true);
     } catch (error: any) {
       console.error("Error saving transaction:", error);
       toast.error(error.message || "Failed to save transaction");
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, [
+    supplier,
+    products,
+    services,
+    user?.id,
+    billDate,
+    paymentMethod,
+    originalBill,
+    isTransactionCompleted,
+  ]);
 
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
+    if (isTransactionCompleted) return;
+
+    if (products.length > 0 || services.length > 0) {
+      if (!confirm("Are you sure you want to cancel? All data will be lost.")) {
+        return;
+      }
+    }
+
     setProducts([]);
     setServices([]);
     setOriginalBill("");
     setSavedTransactionId(null);
     setSavedBuyFactId(null);
     toast.info("Transaction cancelled");
-  };
+  }, [products.length, services.length, isTransactionCompleted]);
 
-  const handleNewTransaction = async () => {
+  const handleNewTransaction = useCallback(async () => {
+    // Reset all state
     setProducts([]);
     setServices([]);
     setOriginalBill("");
     setSavedTransactionId(null);
     setSavedBuyFactId(null);
+    setIsTransactionCompleted(false);
+    setPaymentMethod("Cash");
     setSuccessPopup(false);
 
+    // Generate new bill number
     try {
       const next = await getNextNumber("buyFactId");
       setBillNo(next);
@@ -228,16 +288,82 @@ function Details() {
       console.error("Failed to fetch new bill number", err);
       toast.error("Failed to generate new bill number");
     }
-  };
+
+    toast.success("Ready for new transaction");
+  }, []);
+
+  const handleProductEdit = useCallback(
+    (updatedRow: any, rowIndex: number) => {
+      if (isTransactionCompleted) return;
+
+      const updatedProducts = [...products];
+      updatedProducts[rowIndex] = {
+        ...updatedRow,
+        buyPrice: Number(updatedRow.buyPrice),
+        sellPrice: Number(updatedRow.sellPrice),
+        quantity: Number(updatedRow.quantity),
+      };
+      setProducts(updatedProducts);
+    },
+    [products, isTransactionCompleted]
+  );
+
+  const handleServiceEdit = useCallback(
+    (updatedRow: any, rowIndex: number) => {
+      if (isTransactionCompleted) return;
+
+      const updatedServices = [...services];
+      updatedServices[rowIndex] = {
+        ...updatedRow,
+        buyPrice: Number(updatedRow.buyPrice),
+      };
+      setServices(updatedServices);
+    },
+    [services, isTransactionCompleted]
+  );
+
+  const handleProductDelete = useCallback(
+    (rowIndex: number) => {
+      if (isTransactionCompleted) return;
+
+      const updatedProducts = products.filter((_, i) => i !== rowIndex);
+      setProducts(updatedProducts);
+    },
+    [products, isTransactionCompleted]
+  );
+
+  const handleServiceDelete = useCallback(
+    (rowIndex: number) => {
+      if (isTransactionCompleted) return;
+
+      const updatedServices = services.filter((_, i) => i !== rowIndex);
+      setServices(updatedServices);
+    },
+    [services, isTransactionCompleted]
+  );
 
   return (
-    <div>
+    <div
+    // className={
+    //   isTransactionCompleted
+    //     ? "pointer-events-none select-none opacity-75"
+    //     : ""
+    // }
+    >
       <Toaster richColors />
 
       {/* Buttons */}
       <div className="btns flex gap-2 justify-end">
-        <NewBtn text="ADD PRODUCT" onClick={() => setProductPopup(true)} />
-        <NewBtn text="ADD SERVICE" onClick={() => setServicePopup(true)} />
+        <NewBtn
+          text="ADD PRODUCT"
+          onClick={() => setProductPopup(true)}
+          disabled={isLoading || isTransactionCompleted}
+        />
+        <NewBtn
+          text="ADD SERVICE"
+          onClick={() => setServicePopup(true)}
+          disabled={isLoading || isTransactionCompleted}
+        />
       </div>
 
       {/* Bill Info */}
@@ -250,6 +376,7 @@ function Details() {
               onChange={(e) => setOriginalBill(e.target.value)}
               placeholder="..."
               className="p-0 size-0.5 max-w-[10rem]"
+              disabled={isLoading || isTransactionCompleted}
             />
           </div>
           <p>Bon No: {billNo}</p>
@@ -262,6 +389,7 @@ function Details() {
                 value={billDate}
                 onChange={(e) => setBillDate(e.target.value)}
                 className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
+                disabled={isLoading || isTransactionCompleted}
               />
               <span className="flex items-center gap-2 cursor-pointer">
                 {formattedDate}
@@ -277,7 +405,8 @@ function Details() {
             <span className="font-semibold">{paymentMethod}</span>
             <button
               onClick={() => setPayPopup(true)}
-              className="ml-2 text-btn-primary hover:underline"
+              className="ml-2 text-btn-primary hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isLoading || isTransactionCompleted}
             >
               Change
             </button>
@@ -290,9 +419,16 @@ function Details() {
               className="bg-btn-primary text-white p-1 rounded-[6px] cursor-pointer hover:opacity-80"
               size={25}
               onClick={() => setSupplierPopup(true)}
+              style={{
+                opacity: isLoading || isTransactionCompleted ? 0.5 : 1,
+                cursor:
+                  isLoading || isTransactionCompleted
+                    ? "not-allowed"
+                    : "pointer",
+              }}
             />
           </p>
-          <p>Credit : {supplier?.credit || 0.0}</p>
+          <p>Debt : {supplier?.debt || 0.0} DA</p>
           {savedBuyFactId && (
             <p className="text-green-600 font-semibold">
               Saved Transaction ID: {savedBuyFactId}
@@ -303,76 +439,78 @@ function Details() {
 
       {/* Products & Services */}
       <div className="p-8">
-        <h2 className="text-3xl font-bold mb-2 text-title">Products</h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-3xl font-bold text-title">Products</h2>
+          <span className="text-sm text-gray-600">
+            {products.length} item{products.length !== 1 ? "s" : ""}
+          </span>
+        </div>
         <CustomTable
-          showActions
+          showActions={!isTransactionCompleted}
           data={products}
           columns={pColumns}
-          onEdit={(updatedRow, rowIndex) => {
-            const updatedProducts = [...products];
-            updatedProducts[rowIndex] = {
-              ...updatedRow,
-              buyPrice: Number(updatedRow.buyPrice),
-              sellPrice: Number(updatedRow.sellPrice),
-              quantity: Number(updatedRow.quantity),
-            };
-            setProducts(updatedProducts);
-          }}
-          onDelete={(rowIndex) => {
-            const updatedProducts = products.filter((_, i) => i !== rowIndex);
-            setProducts(updatedProducts);
-          }}
+          onEdit={handleProductEdit}
+          onDelete={handleProductDelete}
         />
 
-        <h2 className="text-3xl font-bold mb-2 text-title mt-6">Services</h2>
+        <div className="flex items-center justify-between mb-2 mt-6">
+          <h2 className="text-3xl font-bold text-title">Services</h2>
+          <span className="text-sm text-gray-600">
+            {services.length} service{services.length !== 1 ? "s" : ""}
+          </span>
+        </div>
         <CustomTable
-          showActions
+          showActions={!isTransactionCompleted}
           data={services}
           columns={sColumns}
-          onEdit={(updatedRow, rowIndex) => {
-            const updatedServices = [...services];
-            updatedServices[rowIndex] = {
-              ...updatedRow,
-              buyPrice: Number(updatedRow.buyPrice),
-            };
-            setServices(updatedServices);
-          }}
-          onDelete={(rowIndex) => {
-            const updatedServices = services.filter((_, i) => i !== rowIndex);
-            setServices(updatedServices);
-          }}
+          onEdit={handleServiceEdit}
+          onDelete={handleServiceDelete}
         />
       </div>
 
       {/* Footer */}
       <div className="flex justify-between items-center px-8 py-4">
         <div className="flex gap-2">
-          <button
-            onClick={handleSave}
-            className="bg-btn-primary text-white py-3 px-8 rounded-2xl text-md"
-          >
-            Save
-          </button>
-          <button
-            onClick={handleCancel}
-            className="bg-transparent text-btn-secondary border border-btn-secondary py-3 px-6 rounded-2xl text-md"
-          >
-            Cancel
-          </button>
-          {savedTransactionId && (
+          {isTransactionCompleted ? (
             <button
               onClick={handleNewTransaction}
-              className="bg-green-600 text-white py-3 px-6 rounded-2xl text-md"
+              className="bg-green-600 text-white py-3 px-8 rounded-2xl text-md hover:opacity-90 pointer-events-auto"
             >
               New Transaction
             </button>
+          ) : (
+            <>
+              <button
+                onClick={handleSave}
+                disabled={isLoading}
+                className="bg-btn-primary text-white py-3 px-8 rounded-2xl text-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? "Saving..." : "Save Purchase"}
+              </button>
+
+              <button
+                onClick={() => setPayPopup(true)}
+                disabled={isLoading}
+                className="bg-blue-600 text-white py-3 px-6 rounded-2xl text-md hover:opacity-90 disabled:opacity-50"
+              >
+                Payment
+              </button>
+
+              <button
+                onClick={handleCancel}
+                disabled={isLoading}
+                className="bg-transparent text-btn-secondary border border-btn-secondary py-3 px-6 rounded-2xl text-md hover:bg-btn-secondary hover:text-white transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </>
           )}
         </div>
         <div>
-          <div className="card bg-secondary rounded-2xl">
+          <div className="card bg-secondary rounded-2xl mb-2">
             <div className="flex flex-col justify-center items-center px-8 py-4">
-              <h1 className="font-medium">Total</h1>
-              <p className="text-lg">{total.toLocaleString()} DA</p>
+              <h1 className="font-medium">Final Total</h1>
+              <p className="text-lg font-bold">{total.toLocaleString()} DA</p>
             </div>
           </div>
         </div>
@@ -380,7 +518,7 @@ function Details() {
 
       {/* POPUPS */}
       <SelectProduct
-        isOpen={productPopup}
+        isOpen={productPopup && !isTransactionCompleted}
         onClose={() => setProductPopup(false)}
         onSelect={(product) => {
           setSelectedProduct(product);
@@ -389,12 +527,13 @@ function Details() {
         }}
       />
       <SelectLot
-        isOpen={lotPopup}
+        isOpen={lotPopup && !isTransactionCompleted}
         productId={selectedProduct?._id}
         onClose={() => setLotPopup(false)}
         onSelect={(lot) => {
           const newProduct = {
             ...lot,
+            lot_id: lot.lot_id || lot._id,
             prod_name: lot.prod_id?.name ?? lot.prod_name,
             prod_oid: lot.prod_id?._id,
             prod_id: lot.prod_id?.prod_id,
@@ -402,55 +541,32 @@ function Details() {
             buyPrice: lot.buyPrice || 0,
             sellPrice: lot.sellPrice || 0,
           };
+          console.log("Adding product to list:", newProduct);
           setProducts((prev) => [...prev, newProduct]);
           setLotPopup(false);
         }}
       />
       <SelectService
-        isOpen={servicePopup}
+        isOpen={servicePopup && !isTransactionCompleted}
         onClose={() => setServicePopup(false)}
         onSelect={(service) => setServices((prev) => [...prev, service])}
       />
       <SelectSupplier
-        isOpen={supplierPopup}
+        isOpen={supplierPopup && !isTransactionCompleted}
         onClose={() => setSupplierPopup(false)}
         onSelect={handleSupplierSelect}
       />
       <PayPopup
-        isOpen={payPopup}
+        isOpen={payPopup && !isTransactionCompleted}
         onClose={() => setPayPopup(false)}
         paymentMethod={paymentMethod}
         setPaymentMethod={setPaymentMethod}
       />
-      <SuccessPopup
+      <SuccessBuyPopup
         isOpen={successPopup}
         onClose={() => setSuccessPopup(false)}
-        onPrintBonLarge={() => {
-          if (savedTransactionId) {
-            window.open(
-              BASEURL + "/api/bon?format=a5&bonId=" + savedTransactionId,
-              "_blank"
-            );
-          }
-        }}
-        onPrintBonMini={() => {
-          if (savedTransactionId) {
-            window.open(
-              BASEURL + "/api/bon?format=a6&bonId=" + savedTransactionId,
-              "_blank"
-            );
-          }
-        }}
-        onPrintFacture={() => {
-          if (savedTransactionId) {
-            window.open(
-              BASEURL + "/api/facture?bonId=" + savedTransactionId,
-              "_blank"
-            );
-          }
-        }}
+        supplierName={supplier?.name ?? "Not Selected"}
         total={total}
-        clientName={supplier?.name ?? "Not Selected"}
       />
     </div>
   );

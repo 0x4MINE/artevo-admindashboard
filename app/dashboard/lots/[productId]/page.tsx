@@ -59,7 +59,7 @@ function Lot({ params }: { params: Promise<{ productId: string }> }) {
   return (
     <div>
       <Toaster richColors />
-      <ContentNavbar setPopUp={setPopUp} setSearch={setSearch} />
+      <ContentNavbar filters={["active"]} setPopUp={setPopUp} setSearch={setSearch} />
       <div className="p-8">
         {" "}
         <ActiveFilterBar filteredData={data} />

@@ -78,7 +78,7 @@ function Transactions() {
     <div className="bg-background min-h-screen">
       <Toaster richColors />
       <ContentNavbar
-        filters={[ "amount", "date"]}
+        filters={["amount", "date"]}
         setSearch={handleSearchChange}
         setPopUp={() => setClientPopUp(true)}
       />
@@ -98,10 +98,23 @@ function Transactions() {
             showActions={true}
             actions={[
               {
-                label: "View Receipt (Bon)",
+                label: "View Receipt (Mini Bon)",
                 icon: <Eye className="h-4 w-4" />,
                 onClick: (bon) => {
-                  window.open("/api/sell-bon?bonId=" + bon._id, "_blank");
+                  window.open(
+                    "/api/sell-bon?format=a6&bonId=" + bon._id,
+                    "_blank"
+                  );
+                },
+              },
+              {
+                label: "View Receipt (Large Bon)",
+                icon: <Eye className="h-4 w-4" />,
+                onClick: (bon) => {
+                  window.open(
+                    "/api/sell-bon?format=a5&bonId=" + bon._id,
+                    "_blank"
+                  );
                 },
               },
               {
@@ -111,7 +124,6 @@ function Transactions() {
                   window.open("/api/sell-facture?bonId=" + bon._id, "_blank");
                 },
               },
-              
             ]}
             currentPage={currentPage}
             onPageChange={setCurrentPage}

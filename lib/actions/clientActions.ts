@@ -143,8 +143,8 @@ export async function getClientById(client_id: string) {
     if (!client) {
       return null;
     }
-
-    return JSON.parse(JSON.stringify(client));
+    const { debt } = await getClientDebt(client._id);
+    return JSON.parse(JSON.stringify({ ...client, debt }));
   } catch (error) {
     console.error("❌ Error in getClientById:", error);
     return null;
@@ -270,9 +270,7 @@ export const getPaginatedClients = async (
     }
 
     // --- Base aggregation pipeline for clients ---
-    let pipeline: any[] = [
-      { $match: match },
-    ];
+    let pipeline: any[] = [{ $match: match }];
 
     // --- Search term ---
     if (searchTerm) {
@@ -308,7 +306,7 @@ export const getPaginatedClients = async (
     }
 
     // --- Prepare for aggregations ---
-    const clientIds = clients.map(c => c._id);
+    const clientIds = clients.map((c) => c._id);
 
     // --- Sales totals (from SellBon + SellBDetails) ---
     const salesAgg = await SellBon.aggregate([
@@ -401,10 +399,11 @@ export const getPaginatedClients = async (
         totalPaid,
         debt,
         spentThisMonth,
-        social: client.social?.map((s: any) => ({
-          ...s,
-          _id: s._id?.toString(),
-        })) || [],
+        social:
+          client.social?.map((s: any) => ({
+            ...s,
+            _id: s._id?.toString(),
+          })) || [],
         createdAt: client.createdAt ? client.createdAt.toISOString() : null,
         updatedAt: client.updatedAt ? client.updatedAt.toISOString() : null,
       };
@@ -412,15 +411,18 @@ export const getPaginatedClients = async (
 
     // --- Apply filters after calculation ---
     if (filters.debtRange) {
-      enrichedClients = enrichedClients.filter(client => 
-        client.debt >= filters.debtRange![0] && client.debt <= filters.debtRange![1]
+      enrichedClients = enrichedClients.filter(
+        (client) =>
+          client.debt >= filters.debtRange![0] &&
+          client.debt <= filters.debtRange![1]
       );
     }
 
     if (filters.spentAmountRange) {
-      enrichedClients = enrichedClients.filter(client => 
-        client.spentThisMonth >= filters.spentAmountRange![0] && 
-        client.spentThisMonth <= filters.spentAmountRange![1]
+      enrichedClients = enrichedClients.filter(
+        (client) =>
+          client.spentThisMonth >= filters.spentAmountRange![0] &&
+          client.spentThisMonth <= filters.spentAmountRange![1]
       );
     }
 

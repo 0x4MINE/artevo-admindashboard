@@ -16,6 +16,83 @@ import { SupplierPaym } from "../models/supplierPaymModel";
 
 export const createSupplier = createOne(Supplier);
 export const getSuppliers = getAll(Supplier);
+export async function getSupplierDebt(supplier_id: string): Promise<number> {
+  try {
+    if (!supplier_id || typeof supplier_id !== "string") {
+      throw new Error("Invalid supplier_id");
+    }
+
+    await connectDB();
+
+    let supplierObjectId = null;
+
+    // Check by Mongo ObjectId
+    if (mongoose.Types.ObjectId.isValid(supplier_id)) {
+      const supplier = await Supplier.findById(supplier_id)
+        .select("_id")
+        .lean();
+      supplierObjectId = supplier?._id;
+    }
+
+    // Check by custom supplier_id field if not found
+    if (!supplierObjectId) {
+      const supplier = await Supplier.findOne({ supp_id: supplier_id })
+        .select("_id")
+        .lean();
+      supplierObjectId = supplier?._id;
+    }
+
+    if (!supplierObjectId) {
+      return 0;
+    }
+
+    // Get purchase total
+    const purchasesAgg = await BuyFact.aggregate([
+      { $match: { suppId: supplierObjectId } },
+      {
+        $lookup: {
+          from: "buydetails",
+          localField: "_id",
+          foreignField: "buyFactId",
+          as: "details",
+        },
+      },
+      { $unwind: "$details" },
+      {
+        $group: {
+          _id: null,
+          totalPurchases: {
+            $sum: {
+              $multiply: [
+                "$details.price",
+                { $ifNull: ["$details.quantity", 1] },
+              ],
+            },
+          },
+        },
+      },
+    ]);
+
+    // Get payment total
+    const paymentsAgg = await SupplierPaym.aggregate([
+      { $match: { supp_id: supplierObjectId } },
+      {
+        $group: {
+          _id: null,
+          totalPaid: { $sum: "$amount" },
+        },
+      },
+    ]);
+
+    const totalPurchases = purchasesAgg[0]?.totalPurchases || 0;
+    const totalPaid = paymentsAgg[0]?.totalPaid || 0;
+
+    return totalPurchases - totalPaid;
+  } catch (error) {
+    console.error("Error in getSupplierDebt:", error);
+    return 0;
+  }
+}
 export async function getSupplierById(supplier_id: string) {
   try {
     if (!supplier_id || typeof supplier_id !== "string") {
@@ -39,8 +116,9 @@ export async function getSupplierById(supplier_id: string) {
     if (!supplier) {
       return null;
     }
-
-    return JSON.parse(JSON.stringify(supplier));
+    const debt =await getSupplierDebt(supplier_id);
+    console.log(debt);
+    return JSON.parse(JSON.stringify({ ...supplier, debt }));
   } catch (error) {
     console.error("Error in getSupplierById:", error);
     return null;

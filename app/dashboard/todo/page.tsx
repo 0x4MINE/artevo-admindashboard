@@ -3,27 +3,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  PlusCircle,
-  Plus,
-  CheckCircle2,
   Circle,
-  Clock,
-  Edit3,
-  Trash2,
   Calendar,
-  AlertTriangle,
   Filter,
-  Search,
-  MoreVertical,
-  X,
   Archive,
-  Star,
-  Users,
-  Tag,
-  Settings,
-  Save,
-  RefreshCw,
-  Move,
   CalendarDays,
   ClockIcon,
 } from "lucide-react";
@@ -62,21 +45,13 @@ import { EnhancedTaskCard } from "@/components/todo/EnhancedTaskCard";
 import ViewModeSwitcher from "@/components/todo/ViewMode";
 import DashboardCard from "@/components/dashboard/DashboardCard";
 import Loader from "@/components/layout/Loader";
+import { TodayView } from "@/components/todo/TodayView";
 
 /* -------------------------
    Animation Variants
    -------------------------*/
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-    },
-  },
-};
 
-const itemVariants = {
+export const itemVariants = {
   hidden: { y: 20, opacity: 0 },
   visible: {
     y: 0,
@@ -164,7 +139,7 @@ export interface Task {
   updatedAt?: Date;
 }
 
-interface Project {
+export interface Project {
   _id: string;
   name: string;
   description?: string;
@@ -175,7 +150,7 @@ interface Project {
   updatedAt?: Date;
 }
 
-interface TaskWithProject extends Task {
+export interface TaskWithProject extends Task {
   projectId: string;
   projectName: string;
 }
@@ -191,7 +166,7 @@ type FilterState = {
 /* -------------------------
    Utility Functions for Date/Time
    -------------------------*/
-const isToday = (date: Date): boolean => {
+export const isToday = (date: Date): boolean => {
   const today = new Date();
   const taskDate = new Date(date);
   return (
@@ -201,7 +176,7 @@ const isToday = (date: Date): boolean => {
   );
 };
 
-const isThisWeek = (date: Date): boolean => {
+export const isThisWeek = (date: Date): boolean => {
   const today = new Date();
   const taskDate = new Date(date);
   const diffTime = taskDate.getTime() - today.getTime();
@@ -209,7 +184,7 @@ const isThisWeek = (date: Date): boolean => {
   return diffDays >= 0 && diffDays <= 7;
 };
 
-const getDayLabel = (date: Date): string => {
+export const getDayLabel = (date: Date): string => {
   if (isToday(date)) return "Today";
 
   const today = new Date();
@@ -222,437 +197,6 @@ const getDayLabel = (date: Date): string => {
   if (diffDays <= 7) return `In ${diffDays} days`;
 
   return formatDate(date);
-};
-
-/* -------------------------
-   Today View Components
-   -------------------------*/
-const TodayTaskCard: React.FC<{
-  task: TaskWithProject;
-  progress: number;
-  onToggleSubtask: (
-    projectId: string,
-    taskId: string,
-    subId: string,
-    completed: boolean
-  ) => void;
-  onAddSubtask: (projectId: string, taskId: string, title: string) => void;
-  onDeleteSubtask: (projectId: string, taskId: string, subId: string) => void;
-  onUpdateTask: (
-    projectId: string,
-    taskId: string,
-    updates: Partial<Task>
-  ) => void;
-  onDeleteTask: (projectId: string, taskId: string) => void;
-  onDuplicateTask: (projectId: string, taskId: string) => void;
-  onChangeStatus: (
-    projectId: string,
-    taskId: string,
-    newStatus: TaskStatus
-  ) => void;
-}> = ({
-  task,
-  progress,
-  onToggleSubtask,
-  onAddSubtask,
-  onDeleteSubtask,
-  onUpdateTask,
-  onDeleteTask,
-  onDuplicateTask,
-  onChangeStatus,
-}) => {
-  return (
-    <motion.div
-      className="bg-primary rounded-xl p-4 shadow-sm border-l-4 border-l-blue-500"
-      variants={itemVariants}
-      whileHover={{ y: -2, transition: { duration: 0.1 } }}
-      transition={{ duration: 0.2 }}
-    >
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium">
-              {task.projectName}
-            </span>
-            <PriorityBadge priority={task.priority} />
-            {task.deadline && (
-              <span
-                className={`text-xs px-2 py-1 rounded-full flex items-center gap-1 ${
-                  isOverdue(task.deadline)
-                    ? "bg-red-100 text-red-700"
-                    : isToday(task.deadline)
-                    ? "bg-green-100 text-green-700"
-                    : "bg-yellow-100 text-yellow-700"
-                }`}
-              >
-                <Calendar size={12} />
-                {getDayLabel(task.deadline)}
-              </span>
-            )}
-          </div>
-          <h4 className="font-medium text-title mb-1">{task.title}</h4>
-          {task.description && (
-            <p className="text-sm text-subtitle mb-2">{task.description}</p>
-          )}
-
-          {/* Progress bar for subtasks */}
-          {task.subtasks && task.subtasks.length > 0 && (
-            <div className="mb-2">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-subtitle">
-                  {task.subtasks.filter((s) => s.completed).length}/
-                  {task.subtasks.length} subtasks
-                </span>
-                <span className="text-xs text-subtitle">{progress}%</span>
-              </div>
-              <div className="w-full bg-secondary rounded-full h-1.5">
-                <motion.div
-                  className="bg-blue-500 h-1.5 rounded-full transition-all"
-                  initial={{ width: "0%" }}
-                  animate={{ width: `${progress}%` }}
-                  transition={{ duration: 0.5, ease: "easeOut" }}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center gap-1">
-          <TodoStatusBadge status={task.status} />
-          <motion.button
-            onClick={() =>
-              onChangeStatus(
-                task.projectId,
-                task._id,
-                task.status === "todo"
-                  ? "in-progress"
-                  : task.status === "in-progress"
-                  ? "done"
-                  : "todo"
-              )
-            }
-            className="p-1 hover:bg-secondary rounded"
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <StatusIcon status={task.status} size={16} />
-          </motion.button>
-        </div>
-      </div>
-
-      {/* Subtasks */}
-      {task.subtasks && task.subtasks.length > 0 && (
-        <div className="space-y-1">
-          {task.subtasks.slice(0, 3).map((subtask) => (
-            <motion.div
-              key={subtask._id}
-              className="flex items-center gap-2 text-sm"
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              <motion.button
-                onClick={() =>
-                  onToggleSubtask(
-                    task.projectId,
-                    task._id,
-                    subtask._id,
-                    !subtask.completed
-                  )
-                }
-                className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
-                  subtask.completed
-                    ? "bg-green-500 border-green-500 text-white"
-                    : "border-gray-300 hover:border-green-400"
-                }`}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-              >
-                {subtask.completed && <CheckCircle2 size={10} />}
-              </motion.button>
-              <span
-                className={
-                  subtask.completed
-                    ? "line-through text-subtitle"
-                    : "text-title"
-                }
-              >
-                {subtask.title}
-              </span>
-            </motion.div>
-          ))}
-          {task.subtasks.length > 3 && (
-            <span className="text-xs text-subtitle ml-6">
-              +{task.subtasks.length - 3} more subtasks
-            </span>
-          )}
-        </div>
-      )}
-    </motion.div>
-  );
-};
-
-const TodayView: React.FC<{
-  projects: Project[];
-  onToggleSubtask: (
-    projectId: string,
-    taskId: string,
-    subId: string,
-    completed: boolean
-  ) => void;
-  onAddSubtask: (projectId: string, taskId: string, title: string) => void;
-  onDeleteSubtask: (projectId: string, taskId: string, subId: string) => void;
-  onUpdateTask: (
-    projectId: string,
-    taskId: string,
-    updates: Partial<Task>
-  ) => void;
-  onDeleteTask: (projectId: string, taskId: string) => void;
-  onDuplicateTask: (projectId: string, taskId: string) => void;
-  onChangeStatus: (
-    projectId: string,
-    taskId: string,
-    newStatus: TaskStatus
-  ) => void;
-  taskProgress: (task: Task) => number;
-}> = ({
-  projects,
-  onToggleSubtask,
-  onAddSubtask,
-  onDeleteSubtask,
-  onUpdateTask,
-  onDeleteTask,
-  onDuplicateTask,
-  onChangeStatus,
-  taskProgress,
-}) => {
-  // Get all tasks with project info
-  const allTasks: TaskWithProject[] = projects.flatMap((project) =>
-    project.tasks.map((task) => ({
-      ...task,
-      projectId: project._id,
-      projectName: project.name,
-    }))
-  );
-
-  // Filter tasks for today
-  const todayTasks = allTasks.filter(
-    (task) => task.deadline && isToday(task.deadline) && task.status !== "done"
-  );
-
-  // Filter tasks for upcoming (next 7 days, excluding today)
-  const upcomingTasks = allTasks.filter(
-    (task) =>
-      task.deadline &&
-      !isToday(task.deadline) &&
-      isThisWeek(task.deadline) &&
-      task.status !== "done"
-  );
-
-  // Filter overdue tasks
-  const overdueTasks = allTasks.filter(
-    (task) =>
-      task.deadline && isOverdue(task.deadline) && task.status !== "done"
-  );
-
-  return (
-    <motion.div
-      className="space-y-6"
-      initial="hidden"
-      animate="visible"
-      variants={containerVariants}
-    >
-      {/* Stats Overview */}
-      <motion.div
-        className="grid grid-cols-1 md:grid-cols-4 gap-4"
-        variants={containerVariants}
-      >
-        {[
-          {
-            label: "Overdue",
-            amount: overdueTasks.length.toString(),
-            Icon: AlertTriangle,
-            color: "red",
-          },
-          {
-            label: "Today",
-            amount: todayTasks.length.toString(),
-            Icon: CalendarDays,
-            color: "blue",
-          },
-          {
-            label: "This Week",
-            amount: upcomingTasks.length.toString(),
-            Icon: ClockIcon,
-            color: "yellow",
-          },
-          {
-            label: "Total Tasks",
-            amount: allTasks.length.toString(),
-            Icon: CheckCircle2,
-            color: "green",
-          },
-        ].map((stat, index) => (
-          <motion.div
-            key={stat.label}
-            variants={itemVariants}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1, duration: 0.3 }}
-          >
-            <DashboardCard
-              label={stat.label}
-              amount={stat.amount}
-              Icon={stat.Icon}
-            />
-          </motion.div>
-        ))}
-      </motion.div>
-
-      {/* Overdue Tasks */}
-      {overdueTasks.length > 0 && (
-        <motion.div
-          className="bg-primary rounded-xl p-6 shadow-sm"
-          variants={itemVariants}
-        >
-          <div className="flex items-center gap-2 mb-4">
-            <AlertTriangle className="text-red-600" size={20} />
-            <h3 className="text-lg font-semibold text-red-800">
-              Overdue Tasks
-            </h3>
-            <span className="text-sm bg-red-100 text-red-700 px-2 py-1 rounded-full">
-              {overdueTasks.length}
-            </span>
-          </div>
-          <motion.div
-            className="grid grid-cols-1 lg:grid-cols-2 gap-4"
-            variants={containerVariants}
-          >
-            {overdueTasks.map((task) => (
-              <TodayTaskCard
-                key={`${task.projectId}-${task._id}`}
-                task={task}
-                progress={taskProgress(task)}
-                onToggleSubtask={onToggleSubtask}
-                onAddSubtask={onAddSubtask}
-                onDeleteSubtask={onDeleteSubtask}
-                onUpdateTask={onUpdateTask}
-                onDeleteTask={onDeleteTask}
-                onDuplicateTask={onDuplicateTask}
-                onChangeStatus={onChangeStatus}
-              />
-            ))}
-          </motion.div>
-        </motion.div>
-      )}
-
-      {/* Today's Tasks */}
-      <motion.div
-        className="bg-primary p-6 rounded-2xl shadow-sm border border-secondary "
-        variants={itemVariants}
-      >
-        <div className="flex items-center gap-2 mb-4">
-          <CalendarDays className="text-blue-600" size={20} />
-          <h3 className="text-lg font-semibold text-blue-800">
-            Today&apos;s Tasks
-          </h3>
-          <span className="text-sm bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-            {todayTasks.length}
-          </span>
-        </div>
-        {todayTasks.length === 0 ? (
-          <motion.div
-            className="text-center py-12"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5 }}
-          >
-            <CalendarDays className="mx-auto mb-4 text-gray-400" size={48} />
-            <p className="text-title mb-2">No tasks due today</p>
-            <p className="text-sm text-gray-500">
-              Great job staying on top of your work!
-            </p>
-          </motion.div>
-        ) : (
-          <motion.div
-            className="grid grid-cols-1 lg:grid-cols-2 gap-4"
-            variants={containerVariants}
-          >
-            {todayTasks.map((task) => (
-              <TodayTaskCard
-                key={`${task.projectId}-${task._id}`}
-                task={task}
-                progress={taskProgress(task)}
-                onToggleSubtask={onToggleSubtask}
-                onAddSubtask={onAddSubtask}
-                onDeleteSubtask={onDeleteSubtask}
-                onUpdateTask={onUpdateTask}
-                onDeleteTask={onDeleteTask}
-                onDuplicateTask={onDuplicateTask}
-                onChangeStatus={onChangeStatus}
-              />
-            ))}
-          </motion.div>
-        )}
-      </motion.div>
-
-      {/* Upcoming Tasks */}
-      <motion.div
-        className="bg-primary p-6 rounded-2xl shadow-sm border border-secondary "
-        variants={itemVariants}
-      >
-        <div className="flex items-center gap-2 mb-4">
-          <ClockIcon className="text-btn-complementary" size={20} />
-          <h3 className="text-lg font-semibold text-btn-complementary">
-            Upcoming This Week
-          </h3>
-          <span className="text-sm bg-yellow-100 text-btn-complementary px-2 py-1 rounded-full">
-            {upcomingTasks.length}
-          </span>
-        </div>
-        {upcomingTasks.length === 0 ? (
-          <motion.div
-            className="text-center py-12"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5 }}
-          >
-            <ClockIcon className="mx-auto mb-4 text-gray-400" size={48} />
-            <p className="text-title mb-2">No upcoming tasks this week</p>
-            <p className="text-sm text-gray-500">
-              Time to plan ahead or take a well-deserved break!
-            </p>
-          </motion.div>
-        ) : (
-          <motion.div
-            className="grid grid-cols-1 lg:grid-cols-2 gap-4"
-            variants={containerVariants}
-          >
-            {upcomingTasks
-              .sort(
-                (a, b) =>
-                  new Date(a.deadline!).getTime() -
-                  new Date(b.deadline!).getTime()
-              )
-              .map((task) => (
-                <TodayTaskCard
-                  key={`${task.projectId}-${task._id}`}
-                  task={task}
-                  progress={taskProgress(task)}
-                  onToggleSubtask={onToggleSubtask}
-                  onAddSubtask={onAddSubtask}
-                  onDeleteSubtask={onDeleteSubtask}
-                  onUpdateTask={onUpdateTask}
-                  onDeleteTask={onDeleteTask}
-                  onDuplicateTask={onDuplicateTask}
-                  onChangeStatus={onChangeStatus}
-                />
-              ))}
-          </motion.div>
-        )}
-      </motion.div>
-    </motion.div>
-  );
 };
 
 /* -------------------------
@@ -1168,7 +712,7 @@ export default function EnhancedTodoPage() {
               isOpen={isProjectOpen}
               onClose={() => {
                 setIsProjectOpen(false);
-                setViewMode("projects")
+                setViewMode("projects");
               }}
             />
           </div>
@@ -1338,7 +882,13 @@ export default function EnhancedTodoPage() {
                 onDeleteTask={deleteTaskData}
                 onDuplicateTask={duplicateTask}
                 onChangeStatus={changeTaskStatus}
+                onSelectProject={(projectId) => {
+                  setSelectedProject(projectId);
+                  setViewMode("projects"); 
+                }}
+                onUpdateProject={updateProjectData}
                 taskProgress={taskProgress}
+                projectProgress={projectProgress}
               />
             </motion.div>
           ) : currentProject ? (

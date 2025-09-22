@@ -10,6 +10,7 @@ export interface ISellBon extends Document {
   userId: Types.ObjectId;
   clientId: Types.ObjectId;
   createdAt: Date;
+  reglement: string;
   updatedAt: Date;
   sellDetails?: ISellBDetails[];
 }
@@ -33,6 +34,7 @@ const SellBonSchema = new Schema<ISellBon>(
     date: { type: Date, default: Date.now, required: true },
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     clientId: { type: Schema.Types.ObjectId, ref: "Client", required: true },
+    reglement: { type: String, required: true, trim: true },
   },
   { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );
