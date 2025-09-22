@@ -8,9 +8,9 @@ export async function GET() {
   await connectDB();
   const user = new User({
     id:'U2025-001',
-    name:"tester",
-    password:"tester123",
-
+    name:"admin",
+    password:"admin",
+    role:"admin",
   });
 
   await user.save();

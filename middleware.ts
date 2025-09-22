@@ -9,29 +9,26 @@ const protectedRoutes = ["/dashboard"];
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const sessionToken = request.cookies.get("session")?.value;
-  
-  // Check if this is an API request
+
   const isApiRequest = pathname.startsWith("/api");
-  
+
   let session;
   try {
     session = await Decrypt(sessionToken);
   } catch (error) {
-    // Session decryption failed
     console.error("Session decryption failed:", error);
-    
+
     if (isApiRequest) {
       return NextResponse.json(
-        { 
-          error: "Session invalid", 
+        {
+          error: "Session invalid",
           code: "SESSION_INVALID",
-          message: "Your session is invalid. Please log in again." 
+          message: "Your session is invalid. Please log in again.",
         },
         { status: 401 }
       );
     }
-    
-    // Clear invalid session and redirect
+
     const response = NextResponse.redirect(new URL("/login", request.url));
     response.cookies.delete("session");
     return response;
@@ -42,20 +39,27 @@ export async function middleware(request: NextRequest) {
   );
   const isPublic = publicRoutes.some((route) => pathname.startsWith(route));
 
-  // Check if session exists but is expired
+  if (pathname === "/") {
+    if (session?.userId) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    } else {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+  }
+
+  // Session expired
   if (sessionToken && (!session || !session.userId)) {
     if (isApiRequest) {
       return NextResponse.json(
-        { 
-          error: "Session expired", 
+        {
+          error: "Session expired",
           code: "SESSION_EXPIRED",
-          message: "Your session has expired. Please log in again." 
+          message: "Your session has expired. Please log in again.",
         },
         { status: 401 }
       );
     }
-    
-    // Clear expired session and redirect
+
     const response = NextResponse.redirect(new URL("/login", request.url));
     response.cookies.delete("session");
     return response;
@@ -64,15 +68,15 @@ export async function middleware(request: NextRequest) {
   if (isProtected && !session?.userId) {
     if (isApiRequest) {
       return NextResponse.json(
-        { 
-          error: "Unauthorized", 
+        {
+          error: "Unauthorized",
           code: "UNAUTHORIZED",
-          message: "Please log in to access this resource." 
+          message: "Please log in to access this resource.",
         },
         { status: 401 }
       );
     }
-    
+
     return NextResponse.redirect(new URL("/login", request.url));
   }
 

@@ -12,12 +12,15 @@ const encodedKey = new TextEncoder().encode(secretKey);
 type SessionPayload = {
   userId: string;
   userName: string;
+  role: string;
+
   expiresAt: number;
 };
 
 export async function createSession(
   userId: string,
   userName: string,
+  role: string,
   remember: string
 ) {
   const expiresAt =
@@ -28,6 +31,8 @@ export async function createSession(
   const session = await Encrypt({
     userId,
     userName,
+    role,
+
     expiresAt: expiresAt.getTime(),
   });
 

@@ -34,7 +34,12 @@ export const login = async (prevState: any, formData: FormData) => {
     };
   }
 
-  await createSession(user._id.toString(), user.name, remember as any);
+  await createSession(
+    user._id.toString(),
+    user.name,
+    user.role,
+    remember as any
+  );
   redirect("/dashboard");
 };
 

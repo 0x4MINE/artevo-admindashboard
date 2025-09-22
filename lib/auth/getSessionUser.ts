@@ -9,5 +9,6 @@ export async function getCurrentUser() {
   return {
     id: session.userId,
     name: session.userName,
+    role: session.role,
   };
 }

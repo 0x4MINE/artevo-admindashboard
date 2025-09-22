@@ -2,25 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import AddTextInput from "../forms/AddTextInput";
-import { generate3DigitId } from "@/lib/utils";
 import AddButton from "../AddButton";
-import { toast } from "sonner";
-import { Switch } from "@/components/ui/switch";
 import SelectInput from "@/components/forms/SelectInput";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
+import { generate3DigitId } from "@/lib/utils";
 import { createUser, updateUser } from "@/lib/actions/userActions";
-import { z } from "zod";
-
-const userSchema = z.object({
-  id: z.string().min(3, "ID must be at least 3 characters"),
-  name: z
-    .string()
-    .min(2, "Name must be at least 2 characters")
-    .max(50, "Name cannot exceed 50 characters")
-    .regex(/^[a-zA-Z\s]+$/, "Name can only contain letters and spaces"),
-  password: z.string().min(4, "Password must be at least 4 characters"),
-  role: z.string().min(1, "Please select a role"),
-  isActive: z.boolean(),
-});
+import { useUserStore } from "@/lib/store/useUser";
 
 interface Props {
   setData: React.Dispatch<React.SetStateAction<any[]>>;
@@ -31,95 +19,69 @@ interface Props {
 
 function UsersPopup({ setPopUp, setData, editUser, setEditUser }: Props) {
   const newClientId = useMemo(() => generate3DigitId(), []);
+  const { user } = useUserStore();
+
   const [form, setForm] = useState({
     id: "",
     name: "",
-    isActive: true,
     password: "",
     role: "",
+    isActive: true,
   });
-  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (editUser) {
       setForm({
         id: editUser.id,
         name: editUser.name,
-        password: "",
         role: editUser.role,
         isActive: editUser.isActive,
+        password: "",
       });
     } else {
       setForm((prev) => ({ ...prev, id: newClientId }));
     }
   }, [editUser, newClientId]);
 
-  const handleRoleSelect = (selectedRole: string) => {
-    setForm((prev) => ({ ...prev, role: selectedRole }));
-    setErrors((prev) => ({ ...prev, role: "" }));
-  };
-
-  const validateField = (field: keyof typeof form, value: string | boolean) => {
-    try {
-      const fieldSchema = z.object({ [field]: userSchema.shape[field] });
-      fieldSchema.parse({ [field]: value });
-      setErrors((prev) => ({ ...prev, [field]: "" }));
-    } catch (error: unknown) {
-      const defaultMessage = `Invalid ${field.toString()}`;
-      let errorMessage = defaultMessage;
-
-      if (error instanceof z.ZodError) {
-        errorMessage = error.errors?.[0]?.message ?? defaultMessage;
-      } else if (error instanceof Error) {
-        errorMessage = error.message || defaultMessage;
-      }
-
-      setErrors((prev) => ({ ...prev, [field]: errorMessage }));
-    }
-  };
-
   const handleChange = (field: keyof typeof form, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [field]: value }));
-    validateField(field, value);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const validation = userSchema.safeParse(form);
-    if (!validation.success) {
-      const newErrors: Record<string, string> = {};
-      validation.error.errors?.forEach((err) => {
-        newErrors[err.path[0]] = err.message;
-      });
-      setErrors(newErrors);
-      toast.error("Please fix the form errors");
+    if (user?.role !== "admin") {
+      toast.error("You do not have permission to perform this action");
       return;
     }
+
+    const payload = { ...form };
 
     setPopUp(false);
     setEditUser?.(null);
 
     try {
       if (editUser) {
-        // UPDATE
-        await toast.promise(updateUser(editUser._id, validation.data), {
+        await toast.promise(updateUser(editUser._id, payload), {
           loading: "Updating user...",
           success: () => {
             setData((prev) =>
               prev.map((u) =>
                 u._id === editUser._id
-                  ? { ...u, ...validation.data, updatedAt: new Date().toISOString() }
+                  ? {
+                      ...u,
+                      ...payload,
+                      updatedAt: new Date().toISOString(),
+                    }
                   : u
               )
             );
-            return `User ${form.id} has been updated`;
+            return `User ${form.id} updated`;
           },
           error: "Failed to update user",
         });
       } else {
-        // CREATE
-        await toast.promise(createUser(validation.data), {
+        await toast.promise(createUser(payload), {
           loading: "Saving user...",
           success: (response) => {
             if (!response?.success)
@@ -128,13 +90,13 @@ function UsersPopup({ setPopUp, setData, editUser, setEditUser }: Props) {
             setData((prev) => [
               ...prev,
               {
-                ...validation.data,
+                ...payload,
                 _id: response.data?._id || "",
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
               },
             ]);
-            return `User ${form.id} has been added`;
+            return `User ${form.id} added`;
           },
           error: (err) => err.message || "Failed to add user",
         });
@@ -143,6 +105,14 @@ function UsersPopup({ setPopUp, setData, editUser, setEditUser }: Props) {
       console.error("Error saving user:", error);
     }
   };
+
+  if (user?.role !== "admin") {
+    return (
+      <div className="p-8 text-center text-red-500 font-semibold">
+        You are not authorized to access this feature.
+      </div>
+    );
+  }
 
   return (
     <form
@@ -153,17 +123,13 @@ function UsersPopup({ setPopUp, setData, editUser, setEditUser }: Props) {
         {editUser ? "EDIT USER" : "ADD A USER"}
       </h1>
 
-      <AddTextInput
-        isDisabled
-        placeholder={"#" + form.id}
-      />
+      <AddTextInput isDisabled placeholder={"#" + form.id} />
 
       <AddTextInput
         value={form.name}
         onChange={(e) => handleChange("name", e.target.value)}
         placeholder="Username"
         name="name"
-        error={errors.name}
       />
 
       <AddTextInput
@@ -171,13 +137,15 @@ function UsersPopup({ setPopUp, setData, editUser, setEditUser }: Props) {
         name="password"
         value={form.password}
         onChange={(e) => handleChange("password", e.target.value)}
-        placeholder="Password (min 4 characters)"
-        error={errors.password}
+        placeholder={
+          editUser
+            ? "Password (leave blank to keep unchanged)"
+            : "Password (min 4 characters)"
+        }
       />
 
       <SelectInput
-        onSelect={handleRoleSelect}
-        error={errors.role}
+        onSelect={(role) => handleChange("role", role)}
         value={form.role}
       />
 
@@ -194,9 +162,7 @@ function UsersPopup({ setPopUp, setData, editUser, setEditUser }: Props) {
         </div>
       </div>
 
-      <AddButton type="submit">
-        {editUser ? "Update User" : "Add User"}
-      </AddButton>
+      <AddButton type="submit" text={editUser ? "Update User" : "Add User"} />
     </form>
   );
 }

@@ -3,22 +3,24 @@
 import ContentNavbar from "@/components/layout/ContentNavbar";
 import CustomTable from "@/components/custom-table";
 import Popup from "@/components/Popup";
-import CategoriesPopup from "@/components/popups/CategoriesPopup";
 import UsersPopup from "@/components/popups/UsersPopup";
 import { Column } from "@/types/Column";
-import FilterState from "@/types/FilterState";
-import React, { use, useEffect, useState } from "react";
+import { IUser } from "@/lib/models/userModel";
 import { toast, Toaster } from "sonner";
 import { deleteUser, getUsers } from "@/lib/actions/userActions";
 import { useFilterStore } from "@/lib/store/useFilter";
-import { Copy, Edit, Eye, Trash2 } from "lucide-react";
+import { Edit, Trash2 } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { useUserStore } from "@/lib/store/useUser";
+
 function Users() {
   const [popUp, setPopUp] = useState(false);
   const [search, setSearch] = useState("");
-  const [data, setData] = useState([]);
-  const [editUser, setEditUser] = useState(null);
-
+  const [data, setData] = useState<IUser[]>([]);
+  const [editUser, setEditUser] = useState<IUser | null>(null);
+  const { user } = useUserStore();
   const { filters } = useFilterStore();
+
   const columns: Column[] = [
     { key: "id", label: "ID", type: "text" },
     { key: "name", label: "Name", type: "text" },
@@ -28,30 +30,32 @@ function Users() {
   ];
 
   useEffect(() => {
-    async function fetchData() {
-      const users = await getUsers();
-      console.log(users);
-      setData(users);
-    }
-
-    fetchData();
+    (async () => {
+      try {
+        const users = await getUsers();
+        console.log(user);
+        setData(users);
+      } catch (err) {
+        toast.error("Failed to fetch users");
+      }
+    })();
   }, [filters]);
 
-  const handleDelete = async (item: any) => {
-    const { _id, id } = item;
+  const handleDelete = (item: IUser) => {
     toast.promise(
       async () => {
+        const { _id, id } = item;
         const response = await deleteUser(_id);
 
         if (!response.success) throw new Error(response.error);
-        setData([...data].filter((element) => element._id !== _id));
+        setData((prev) => prev.filter((u) => u._id !== _id));
 
-        return `User ${id} has been deleted`;
+        return `User ${id} deleted`;
       },
       {
         loading: "Deleting user...",
         success: (msg) => msg,
-        error: "Failed to add user",
+        error: "Failed to delete user",
       }
     );
   };
@@ -59,27 +63,31 @@ function Users() {
   return (
     <div className="bg-background min-h-screen">
       <Toaster richColors />
-      <ContentNavbar setSearch={setSearch} setPopUp={setPopUp} />
+      <ContentNavbar
+        filters={["active"]}
+        setSearch={setSearch}
+        setPopUp={setPopUp}
+      />
       <div className="p-8">
         <CustomTable
           data={data}
-          showActions={true}
           columns={columns}
           searchTerm={search}
+          showActions={user?.role === "admin"}
           actions={[
             {
               label: "Edit",
               icon: <Edit className="h-4 w-4" />,
               onClick: (item) => {
-                setEditUser(item);
+                setEditUser(item as IUser);
                 setPopUp(true);
               },
             },
             {
               label: "Delete",
               icon: <Trash2 className="h-4 w-4" />,
-              onClick: (item) => handleDelete(item),
-              variant: "destructive" as const,
+              onClick: (item) => handleDelete(item as IUser),
+              variant: "destructive",
             },
           ]}
         />
