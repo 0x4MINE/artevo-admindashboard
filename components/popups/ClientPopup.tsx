@@ -23,6 +23,7 @@ interface ClientFormData {
   nis: string;
   rc: string;
   art: string;
+  address: string;
   isActive: boolean;
   social: SocialMedia[];
 }
@@ -53,6 +54,7 @@ const ClientPopup: React.FC<ClientPopupProps> = ({
     nis: "",
     rc: "",
     art: "",
+    address: "",
     isActive: true,
     social: [],
   });
@@ -70,6 +72,7 @@ const ClientPopup: React.FC<ClientPopupProps> = ({
         nif: editClient.nif || "",
         nis: editClient.nis || "",
         rc: editClient.rc || "",
+        address: editClient.address || "",
         art: editClient.art || "",
         isActive: editClient.isActive ?? true,
         social: editClient.social || [],
@@ -249,6 +252,13 @@ const ClientPopup: React.FC<ClientPopupProps> = ({
         value={form.phone}
         onChange={handleChange}
         error={errors.phone}
+      />
+      <AddTextInput
+        name="address"
+        placeholder="address"
+        value={form.address}
+        onChange={handleChange}
+        error={errors.address}
       />
 
       <div className="grid grid-cols-2 gap-2">

@@ -12,6 +12,7 @@ export interface IClient {
   nif?: string;
   nis?: string;
   art?: string;
+  address?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -77,6 +78,11 @@ const clientSchema = new Schema<IClient>(
       type: String,
       trim: true,
       maxlength: 50,
+    },
+    address: {
+      type: String,
+      trim: true,
+      maxlength: 100,
     },
   },
   {
